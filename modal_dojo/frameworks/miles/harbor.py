@@ -60,6 +60,11 @@ async def run(base_url: str, metadata: dict[str, Any], **kwargs: Any) -> dict:
                     base_url=_public_url(base_url) + "/v1",
                     model_api_format="openai_chat_completions",
                     env={"OPENAI_API_KEY": "unused"},
+                    kwargs=(
+                        {"version": version}
+                        if (version := metadata.get("harbor_agent_version"))
+                        else {}
+                    ),
                 ),
                 environment=EnvironmentConfig(type="modal"),
                 trials_dir=Path(trials_dir),
