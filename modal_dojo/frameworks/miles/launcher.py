@@ -492,6 +492,11 @@ def build_miles_app(
         checkpoints_volume.reload()
 
         save_path = str(miles.ref_load)
+        # Miles loads a Hugging Face ref_load (one with a config.json) directly.
+        if os.path.isfile(os.path.join(save_path, "config.json")):
+            print(f"{save_path} is a Hugging Face checkpoint; skipping conversion.")
+            flush_status_reporter(timeout_seconds=2.0)
+            return None
         if has_torch_dist_checkpoint(
             save_path, is_complete=is_complete_torch_dist_checkpoint_storage
         ):
