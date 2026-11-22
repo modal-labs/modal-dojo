@@ -4,6 +4,7 @@ import pytest
 from modal.exception import AlreadyExistsError, InvalidError
 
 from modal_dojo.common import volumes
+from modal_dojo.common.errors import DojoConfigError
 
 
 class FakeVolumes:
@@ -40,3 +41,13 @@ def test_a_new_volume_is_created_as_v2_and_an_existing_one_keeps_its_version(fak
         assert volumes.dojo_volume(name).version is None
 
     assert fake.existing == {"old-v1": 1, "old-v2": 2, "new": 2}
+
+
+def test_a_run_that_needs_v2_refuses_a_v1_volume(fake):
+    volumes.require_v2_volume("old-v2", "a need")
+
+    with pytest.raises(
+        DojoConfigError,
+        match=r"'old-v1' is v1; a need.*modal volume create --version 2",
+    ):
+        volumes.require_v2_volume("old-v1", "a need")

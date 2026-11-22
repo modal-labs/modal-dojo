@@ -50,6 +50,7 @@ _MILES_SKIP = {
     "megatron_conversion_hf_checkpoint",
     "docker_image",
     "gpu_type",
+    "stitch",
     "memory",
     "cpu",
     "cloud",
@@ -135,6 +136,8 @@ class MilesRecipe(BaseTrainRecipe):
             Modal GPU type for every node.
         colocate:
             Trainer and rollout engines share GPUs; ``False`` gives each its own.
+        stitch:
+            Runs the rollout engines as a Stitch run outside the training cluster, on ``gpu_type``.
         actor_num_nodes:
             Megatron actor nodes.
         actor_num_gpus_per_node:
@@ -516,6 +519,7 @@ class MilesRecipe(BaseTrainRecipe):
     # ── Cluster ────────────────────────────────────────────
     gpu_type: str = "H100"
     colocate: bool = True
+    stitch: bool = False
     actor_num_nodes: int = 1
     actor_num_gpus_per_node: int = 1
     rollout_num_gpus: int | None = None
