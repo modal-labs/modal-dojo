@@ -41,6 +41,20 @@ def _public_url(base_url: str) -> str:
     return _tunnels[url.port][1] + url.path
 
 
+def _get_base_url(agent: str, base_url: str) -> str:
+    from harbor.agents.factory import AgentFactory
+    from harbor.agents.installed.base import BaseInstalledAgent
+    from harbor.models.trial.config import AgentConfig
+
+    # installed agents run harness in sandbox, so connection to session server (tunnel) is needed
+    # exposing the session server is not a good idea by default, so we only do it when it's an installed agent type
+    agent_class = AgentFactory.get_agent_class_from_config(AgentConfig(name=agent))
+    if issubclass(agent_class, BaseInstalledAgent):
+        return _public_url(base_url)
+
+    return base_url
+
+
 async def run(base_url: str, metadata: dict[str, Any], **kwargs: Any) -> dict:
     from harbor.models.trial.config import (
         AgentConfig,
@@ -57,14 +71,10 @@ async def run(base_url: str, metadata: dict[str, Any], **kwargs: Any) -> dict:
                 agent=AgentConfig(
                     name=metadata["harbor_agent"],
                     model_name="openai/policy",
-                    base_url=_public_url(base_url) + "/v1",
+                    base_url=_get_base_url(metadata["harbor_agent"], base_url) + "/v1",
                     model_api_format="openai_chat_completions",
                     env={"OPENAI_API_KEY": "unused"},
-                    kwargs=(
-                        {"version": version}
-                        if (version := metadata.get("harbor_agent_version"))
-                        else {}
-                    ),
+                    kwargs=metadata.get("harbor_agent_kwargs", {}),
                 ),
                 environment=EnvironmentConfig(type="modal"),
                 trials_dir=Path(trials_dir),

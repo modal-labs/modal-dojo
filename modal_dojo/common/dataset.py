@@ -300,14 +300,14 @@ class HarborAgent:
     """A Harbor agent harness that solves each Harbor task in its own Modal Sandbox.
 
     Attributes:
-        name: Harbor agent name, such as ``"pi"``.
-        version: Agent version Harbor installs in each sandbox. ``None`` installs
-            the latest release, so a training run can change agent versions midway.
+        name: Harbor agent name, such as ``"pi"`` or ``"terminus-2"``.
+        kwargs: Options passed to the Harbor agent's constructor, such as version, or
+            ``enable_summarize=False`` for ``"terminus-2"``. Must be JSON-serializable.
     """
 
-    def __init__(self, name: str, version: str | None = None) -> None:
+    def __init__(self, name: str, **kwargs: Any) -> None:
         self.name = name
-        self.version = version
+        self.kwargs = kwargs
 
 
 class HarborTasks(DatasetConfig):
@@ -382,7 +382,7 @@ class HarborTasks(DatasetConfig):
             "metadata": {
                 "harbor_task_path": task_dir.as_posix(),
                 "harbor_agent": self.agent.name,
-                "harbor_agent_version": self.agent.version,
+                "harbor_agent_kwargs": self.agent.kwargs,
             },
         }
 
