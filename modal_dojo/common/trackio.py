@@ -158,6 +158,7 @@ def _deploy_modal_dashboard(
     import modal
 
     from modal_dojo.common.config import DASHBOARD_PASSWORD_SECRET_NAME
+    from modal_dojo.common.volumes import dojo_volume
 
     modal.Secret.objects.create(
         modal_secret_name,
@@ -176,7 +177,7 @@ def _deploy_modal_dashboard(
         pass
     else:
         function_secrets.append(password_secret)
-    data = modal.Volume.from_name(volume_name, create_if_missing=True)
+    data = dojo_volume(volume_name)
     image = (
         modal.Image.debian_slim(python_version="3.12")
         .uv_pip_install(f"trackio=={TRACKIO_PACKAGE_VERSION}")
