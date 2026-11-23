@@ -2713,6 +2713,56 @@ table.rollout-table th:nth-child(4) .column-label {
   background: color-mix(in srgb, var(--accent) 22%, transparent);
 }
 
+/* Config diff drawer: one column per compared run; rows whose values differ
+   get a marker, and cells that differ from the first run are highlighted. */
+.config-diff-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.config-diff-table th,
+.config-diff-table td {
+  max-width: 280px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.config-diff-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--color-c-gray-2, #1c1c1c);
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.config-diff-key {
+  color: var(--muted);
+}
+
+.config-diff-row .config-diff-key {
+  color: var(--text-bright);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.config-diff-changed {
+  color: var(--text-bright);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
+.config-diff-missing {
+  color: var(--muted);
+}
+
 /* The compared runs stay in view while the panels scroll under them. The
    padding is offset by an equal negative margin so the layout is unchanged. */
 .compare-runs-bar {

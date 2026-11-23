@@ -2,8 +2,9 @@
   // Metrics compare page: pick several training runs and overlay their
   // wandb/trackio scalars W&B-style. Panels are the union of every selected
   // run's metric keys; each panel draws one line per run that logged it.
-  import { Eye, EyeOff, Plus, X } from "lucide-svelte";
+  import { Eye, EyeOff, FileDiff, Plus, X } from "lucide-svelte";
   import AddRunsModal from "../components/AddRunsModal.svelte";
+  import ConfigDiffDrawer from "../components/ConfigDiffDrawer.svelte";
   import ChartSkeleton from "../components/ChartSkeleton.svelte";
   import CompareLineChart from "../components/CompareLineChart.svelte";
   import GroupSection from "../components/GroupSection.svelte";
@@ -31,6 +32,7 @@
   // runId → { payload, error }
   let results = $state({});
   let search = $state("");
+  let configDiffOpen = $state(false);
   let collapsed = $state(new Set());
   let hiddenRuns = $state(new Set());
   let stepDomains = $state({});
@@ -157,6 +159,17 @@
       <span>Add runs</span>
     </button>
 
+    <button
+      type="button"
+      class="log-button inline-flex items-center gap-[4px] disabled:opacity-50 disabled:cursor-default"
+      disabled={runIds.length < 2}
+      title={runIds.length < 2 ? "Add another run to compare configs" : "Show where the runs' configs differ"}
+      onclick={() => (configDiffOpen = true)}
+    >
+      <FileDiff size={12} strokeWidth={2.1} />
+      <span>Diff config</span>
+    </button>
+
     {#if runIds.length}
       <input
         class="ml-auto w-[280px] max-[640px]:w-full bg-(--color-c-gray-08,#1c1c1c) text-(--text) [border:1px_solid_var(--border,#3a3a3a)] rounded-[5px] p-[6px_10px] text-[12px] [font-family:inherit] focus:outline-none focus:[border-color:color-mix(in_srgb,var(--accent)_55%,transparent)]"
@@ -167,6 +180,8 @@
       />
     {/if}
   </div>
+
+  <ConfigDiffDrawer open={configDiffOpen} runs={runMeta} onclose={() => (configDiffOpen = false)} />
 
   <AddRunsModal
     open={addOpen}
