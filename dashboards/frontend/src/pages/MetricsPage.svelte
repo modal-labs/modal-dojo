@@ -156,6 +156,16 @@
       <Plus size={12} strokeWidth={2.1} />
       <span>Add runs</span>
     </button>
+
+    {#if runIds.length}
+      <input
+        class="ml-auto w-[280px] max-[640px]:w-full bg-(--color-c-gray-08,#1c1c1c) text-(--text) [border:1px_solid_var(--border,#3a3a3a)] rounded-[5px] p-[6px_10px] text-[12px] [font-family:inherit] focus:outline-none focus:[border-color:color-mix(in_srgb,var(--accent)_55%,transparent)]"
+        type="search"
+        placeholder="Search panels (e.g. loss, rollout/)"
+        bind:value={search}
+        aria-label="Search panels by metric name"
+      />
+    {/if}
   </div>
 
   <AddRunsModal
@@ -188,13 +198,6 @@
     </div>
   {:else}
     <div class="flex flex-wrap items-center gap-[10px]">
-      <input
-        class="flex-1 min-w-[200px] bg-(--color-c-gray-08,#1c1c1c) text-(--text) [border:1px_solid_var(--border,#3a3a3a)] rounded-[5px] p-[6px_10px] text-[12px] [font-family:inherit] focus:outline-none focus:[border-color:color-mix(in_srgb,var(--accent)_55%,transparent)]"
-        type="search"
-        placeholder="Search panels (e.g. loss, rollout/)"
-        bind:value={search}
-        aria-label="Search panels by metric name"
-      />
       <!-- Same trailing window LineChart's Smoothing checkbox uses by default. -->
       <label class="inline-flex items-center gap-[5px] text-[12px] text-(--muted) cursor-pointer select-none" title="Trailing mean over the last 5 steps">
         <input type="checkbox" bind:checked={smoothing} />
