@@ -1,3 +1,5 @@
+from dataclasses import field
+
 from pydantic import ConfigDict
 from pydantic.dataclasses import dataclass
 
@@ -29,3 +31,11 @@ class Qwen3_5_9B_Recipe(SlimeRecipe):
     attention_backend: str = "flash"
     max_tokens_per_gpu: MicroBatchSize = 12288
     lr: float = 5e-7
+    # The linear-attention Triton kernels autotune once per new input shape.
+    # Persist the results so only shapes no earlier run has seen pay for it.
+    train_env_vars: dict | str | None = field(
+        default_factory=lambda: {
+            "TRITON_CACHE_AUTOTUNING": "1",
+            "TRITON_CACHE_DIR": "/checkpoints/.kernel-cache/triton",
+        }
+    )
