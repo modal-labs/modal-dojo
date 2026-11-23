@@ -1114,7 +1114,6 @@
         onLoadMore={loadMoreRuns}
         isRunning={isRunRunning}
         onChangeRunIds={setCompareRunIds}
-        onOpenRun={openTrainingRunDetail}
       />
     {:else if activePage === "evals"}
       <EvalsPage

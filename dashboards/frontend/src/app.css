@@ -2713,6 +2713,17 @@ table.rollout-table th:nth-child(4) .column-label {
   background: color-mix(in srgb, var(--accent) 22%, transparent);
 }
 
+/* The compared runs stay in view while the panels scroll under them. The
+   padding is offset by an equal negative margin so the layout is unchanged. */
+.compare-runs-bar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--bg);
+  padding: 8px 0;
+  margin: -8px 0;
+}
+
 .run-chip {
   display: inline-flex;
   align-items: center;

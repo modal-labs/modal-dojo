@@ -24,7 +24,6 @@
     onLoadMore = () => {},
     isRunning = () => false,
     onChangeRunIds = () => {},
-    onOpenRun = () => {},
   } = $props();
 
   const POLL_MS = 5000;
@@ -125,7 +124,7 @@
 </script>
 
 <section class="flex flex-col gap-[16px] p-[0_24px_24px] max-[900px]:p-[0_16px_24px] min-w-0">
-  <div class="flex flex-wrap items-center gap-[8px]">
+  <div class="compare-runs-bar flex flex-wrap items-center gap-[8px]">
     {#each runMeta as run (run.id)}
       <span class="run-chip" class:run-chip-hidden={hiddenRuns.has(run.id)}>
         <span class="inline-block w-[10px] h-[10px] rounded-[3px] shrink-0" style:background={run.color}></span>
@@ -133,11 +132,8 @@
           class="truncate text-inherit no-underline hover:text-(--text-bright) hover:underline"
           href={`/training/${encodeURIComponent(run.id)}`}
           title={run.id}
-          onclick={(event) => {
-            if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey) return;
-            event.preventDefault();
-            onOpenRun(run.id);
-          }}>{run.label}</a
+          target="_blank"
+          rel="noopener">{run.label}</a
         >
         {#if results[run.id]?.error}
           <span class="text-(--red) text-[11px]" title={results[run.id].error}>error</span>
