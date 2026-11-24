@@ -10,7 +10,10 @@ from modal_dojo.common.errors import DojoConfigError
 from modal_dojo.common.launcher_helpers import resumed_recipe
 from modal_dojo.common.models import Qwen3_5_4B
 from modal_dojo.common.train import TrainConfig
-from modal_dojo.frameworks.miles.launcher import build_miles_app
+from modal_dojo.frameworks.miles.launcher import (
+    _require_bridge_ref_load,
+    build_miles_app,
+)
 from modal_dojo.frameworks.slime.launcher import build_slime_app
 from modal_dojo.train_recipes.miles_recipe import MilesRecipe
 from modal_dojo.train_recipes.slime_recipe import SlimeRecipe
@@ -261,3 +264,13 @@ def test_auto_resume_drops_extra_config_start_rollout_id(recipe, tmp_path) -> No
     assert recipe._escape_hatch_keys() == ("qkv_format",)
     with open(recipe.extra_config) as f:
         assert yaml.safe_load(f) == {"qkv_format": "bshd"}
+
+
+def test_bridge_ref_load_must_hold_a_checkpoint(tmp_path) -> None:
+    with pytest.raises(RuntimeError, match="randomly initialized"):
+        _require_bridge_ref_load(str(tmp_path / "missing"))
+    with pytest.raises(RuntimeError, match="randomly initialized"):
+        _require_bridge_ref_load(str(tmp_path))
+
+    (tmp_path / "config.json").write_text("{}")
+    _require_bridge_ref_load(str(tmp_path))
