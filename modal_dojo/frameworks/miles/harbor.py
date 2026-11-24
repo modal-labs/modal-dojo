@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import tempfile
+import warnings
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
@@ -56,6 +57,16 @@ def _get_base_url(agent: str, base_url: str) -> str:
 
 
 async def run(base_url: str, metadata: dict[str, Any], **kwargs: Any) -> dict:
+    # miles kills the process on any never-awaited coroutine warning. litellm (used by
+    # terminus-2) leaves one behind when harbor's agent timeout cancels a model call
+    # mid-flight, so exempt that one. added here, after miles installs its filter, so it
+    # takes precedence; every other never-awaited coroutine stays fatal.
+    # TODO: this should be taken care of upstream, remove once upstreamed
+    warnings.filterwarnings(
+        "ignore",
+        message=r"coroutine 'OpenAIChatCompletion\.acompletion' was never awaited",
+        category=RuntimeWarning,
+    )
     from harbor.models.trial.config import (
         AgentConfig,
         EnvironmentConfig,
