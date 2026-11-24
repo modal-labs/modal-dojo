@@ -14,7 +14,6 @@ from modal_dojo.train_recipes.gpu_allocation import gpu_memory_gib
 GIB = 1024**3
 
 _UNMODELED_CFG_HINTS = ("engram", "index_", "dspark_", "nextn", "vision")
-# A multi-turn sample's loss region runs from its first assistant token to the end.
 _MULTI_TURN_KNOBS = (
     "custom_generate_function",
     "custom_generate_function_path",
@@ -214,8 +213,7 @@ def _peak_gib(
         if recompute == "full"
         else layer * arch.num_layers
     ) / GIB
-    # bf16 logits for every token, plus the fp32 softmax and bf16 logits grad over the
-    # loss region. Miles' fused log-prob backend keeps neither.
+    # bf16 logits per token; fp32 softmax + bf16 logits grad per loss token.
     if get("log_probs_backend") == "fused":
         loss_tokens = 0
     elif (
@@ -224,7 +222,6 @@ def _peak_gib(
         and get("loss_type") != "sft_loss"
         and not any(get(k) for k in _MULTI_TURN_KNOBS)
     ):
-        # One single-turn sample per slot: only its response is in the loss.
         loss_tokens = min(tokens, int(get("micro_batch_size") or 1) * int(response))
     else:
         loss_tokens = tokens
