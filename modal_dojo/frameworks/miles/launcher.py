@@ -171,6 +171,12 @@ def _unresumable_save_dirs(save_root: str) -> list[str]:
     )
 
 
+def _require_bridge_ref_load(ref_load: str) -> None:
+    """Raise when a bridge-mode ``ref_load`` is missing or empty."""
+    if not (os.path.isdir(ref_load) and os.listdir(ref_load)):
+        raise RuntimeError(f"ref_load {ref_load!r} is missing or empty")
+
+
 def _build_miles_base_image(
     recipe: MilesRecipe,
     dataset: DatasetConfig | None = None,
@@ -838,6 +844,9 @@ def build_miles_app(
             prepare_miles_config(miles, model, tempfile.mkdtemp())
 
             os.makedirs(save_root, exist_ok=True)
+
+            if miles.megatron_to_hf_mode == "bridge" and miles.ref_load:
+                _require_bridge_ref_load(miles.ref_load)
 
             hf_ref: str | None = None
             if model and miles.megatron_to_hf_mode == "bridge" and not miles.ref_load:
