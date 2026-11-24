@@ -1,6 +1,6 @@
 # Modal Dojo
 
-Modal Dojo is an open-source library to get started with production-grade LLM training on [Modal](https://modal.com).
+Modal Dojo is an open-source library to get started with production-grade LLM training on [Modal](https://modal.com), built on top of [Spindle](https://github.com/modal-labs/spindle), Modal's open-source Tinker-compatible training backend.
 
 To get started, you can go through the [Quickstart](#quickstart) section below, or paste the prompt below into your favorite agent:
 
