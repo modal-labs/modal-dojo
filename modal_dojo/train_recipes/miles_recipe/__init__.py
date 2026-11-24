@@ -38,6 +38,7 @@ from modal_dojo.train_recipes.miles_recipe.qwen3_5_4b import (
     Qwen3_5_4B_Miles_Recipe,
 )
 from modal_dojo.train_recipes.miles_recipe.qwen3_8_27b import (
+    Qwen3_8_27B_Miles_LoRA_256k_Recipe,
     Qwen3_8_27B_Miles_LoRA_Recipe,
 )
 
@@ -58,4 +59,5 @@ __all__ = [
     "Muse_Spark_Open_64k_Recipe",
     "Qwen3_5_4B_Miles_Recipe",
     "Qwen3_8_27B_Miles_LoRA_Recipe",
+    "Qwen3_8_27B_Miles_LoRA_256k_Recipe",
 ]
