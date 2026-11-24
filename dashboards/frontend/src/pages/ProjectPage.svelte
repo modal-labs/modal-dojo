@@ -1,22 +1,17 @@
 <script>
-  // Project workspace page (/training/project/<name>): the multi-run metrics
-  // overlay for every run in the project above the project's full runs table.
+  // Project workspace page (/training/project/<name>): W&B-style layout with
+  // the project's runs in a left sidebar beside the multi-run metrics overlay.
   // Membership is queried server-side (?project=), so unlike the grouped
   // Training runs list it sees every run in the project, not just the loaded
   // page of the global list.
-  import { ArrowLeft } from "lucide-svelte";
+  import { ArrowLeft, Eye, EyeOff } from "lucide-svelte";
   import MinimalTableSkeleton from "../components/MinimalTableSkeleton.svelte";
   import RunMetricsPanels from "../components/RunMetricsPanels.svelte";
-  import RunsTable from "../components/RunsTable.svelte";
   import { fetchRuns } from "../lib/api.js";
+  import { runColor } from "../lib/metricSeries.js";
 
   let {
     project,
-    getStatus,
-    modelName,
-    showFrameworkStatus,
-    selectedRunIds = new Set(),
-    onToggleRunSelected = () => {},
     onOpenDetail = () => {},
     onBack = () => {},
   } = $props();
@@ -29,6 +24,14 @@
   let error = $state(null);
   let search = $state("");
   let smoothing = $state(false);
+  let hiddenIds = $state(new Set());
+
+  function toggleHidden(id) {
+    const next = new Set(hiddenIds);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    hiddenIds = next;
+  }
 
   async function loadAll(signal) {
     const out = [];
@@ -118,15 +121,36 @@
   {:else if !runs.length}
     <div class="page-empty">No runs in project “{project}”.</div>
   {:else}
-    <RunMetricsPanels {runIds} {search} {smoothing} {isRunning} />
-    <RunsTable
-      {runs}
-      {selectedRunIds}
-      {onToggleRunSelected}
-      {onOpenDetail}
-      {getStatus}
-      {modelName}
-      {showFrameworkStatus}
-    />
+    <div class="grid grid-cols-[260px_minmax(0,1fr)] gap-[16px] max-[900px]:grid-cols-1 items-start">
+      <aside class="flex flex-col gap-[2px] min-w-0">
+        {#each runs as run, i (run.run_id)}
+          {@const hidden = hiddenIds.has(run.run_id)}
+          <div
+            class="flex items-center gap-[8px] rounded-[5px] p-[5px_8px] min-w-0 hover:bg-(--color-c-gray-08,#1c1c1c)"
+          >
+            <span
+              class="shrink-0 w-[8px] h-[8px] rounded-full"
+              style={`background: ${runColor(i)};${hidden ? " opacity: 0.25;" : ""}`}
+            ></span>
+            <button
+              type="button"
+              class="min-w-0 flex-1 text-left overflow-hidden text-ellipsis whitespace-nowrap text-[12px] [font-family:var(--font-mono)] text-(--text) bg-transparent border-0 p-0 cursor-pointer hover:text-(--text-bright)"
+              title={run.run_id}
+              onclick={() => onOpenDetail(run.run_id)}
+            >{run.run_id}</button>
+            <span class="shrink-0 text-[11px] text-(--muted)">{run.status || ""}</span>
+            <button
+              type="button"
+              class="shrink-0 inline-flex items-center bg-transparent border-0 p-0 cursor-pointer text-(--muted) hover:text-(--text)"
+              aria-label={hidden ? `Show ${run.run_id} in charts` : `Hide ${run.run_id} from charts`}
+              onclick={() => toggleHidden(run.run_id)}
+            >
+              {#if hidden}<EyeOff size={12} strokeWidth={2} />{:else}<Eye size={12} strokeWidth={2} />{/if}
+            </button>
+          </div>
+        {/each}
+      </aside>
+      <RunMetricsPanels {runIds} {hiddenIds} {search} {smoothing} {isRunning} />
+    </div>
   {/if}
 </section>

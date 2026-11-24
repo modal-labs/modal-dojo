@@ -1115,11 +1115,6 @@
     {#if activePage === "training" && activeProjectName}
       <ProjectPage
         project={activeProjectName}
-        {getStatus}
-        {modelName}
-        {showFrameworkStatus}
-        {selectedRunIds}
-        onToggleRunSelected={toggleRunSelected}
         onOpenDetail={openTrainingRunDetail}
         onBack={backToTrainingList}
       />
