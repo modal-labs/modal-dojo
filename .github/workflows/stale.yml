@@ -1,0 +1,79 @@
+name: Reap stale work
+on:
+  workflow_dispatch:
+    inputs:
+      dryRun:
+        description: "Run workflow without taking action"
+        required: true
+        default: true
+        type: boolean
+  schedule:
+    - cron: "30 15 * * *"
+
+permissions:
+  actions: write
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: stale-${{ github.event_name }}
+  cancel-in-progress: true
+
+jobs:
+  stale-prs:
+    name: Close stale PRs
+    runs-on: ubuntu-latest
+    outputs:
+      closed-prs: ${{ steps.stale.outputs.closed-issues-prs }}
+    steps:
+      - uses: actions/stale@v10.2.0
+        id: stale
+        with:
+          days-before-pr-stale: 5
+          stale-pr-label: stale
+          days-before-pr-close: 5
+          ascending: true
+          operations-per-run: 75
+          stale-pr-message: |
+            This PR is stale because it has been open 5 days with no activity.
+            This PR will be closed in 5 days.
+            If you wish to keep the PR open, add a comment or update the content.
+            To exempt this PR from closure, convert to draft or add the `do-not-stale` label.
+          close-pr-message: |
+            This PR was closed because it has been stalled for 10 days with no activity.
+            Reopen from the branch if you're still interested in merging this change.
+          exempt-draft-pr: true
+          exempt-pr-labels: do-not-stale
+          days-before-issue-stale: -1
+          days-before-issue-close: -1
+          debug-only: ${{ github.event_name != 'workflow_dispatch' || inputs.dryRun }}
+
+  stop-closed-previews:
+    name: Stop closed PR previews
+    needs: stale-prs
+    if: |
+      github.event_name == 'workflow_dispatch' && !inputs.dryRun &&
+      needs.stale-prs.outputs.closed-prs != '[]'
+    runs-on: ubuntu-latest
+    environment: modal-preview
+    env:
+      MODAL_TOKEN_ID: ${{ secrets.PREVIEW_MODAL_TOKEN_ID }}
+      MODAL_TOKEN_SECRET: ${{ secrets.PREVIEW_MODAL_TOKEN_SECRET }}
+      MODAL_ENVIRONMENT: dojo
+      MODAL_IMAGE_BUILDER_VERSION: "2025.06"
+    steps:
+      - uses: actions/checkout@v4.4.0
+
+      - uses: actions/setup-python@v5.6.0
+        with:
+          python-version-file: ".python-version"
+
+      - uses: astral-sh/setup-uv@v5.4.2
+
+      - name: Stop dashboard previews of closed PRs
+        env:
+          CLOSED_PRS: ${{ needs.stale-prs.outputs.closed-prs }}
+        run: |
+          for pr in $(echo "$CLOSED_PRS" | jq -r '.[] | select(.pull_request != null) | .number'); do
+            uv run python scripts/previews/dashboard_api.py stop "$pr"
+          done
