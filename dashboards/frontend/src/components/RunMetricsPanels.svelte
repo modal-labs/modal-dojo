@@ -48,14 +48,9 @@
     const poll = anyLive;
     if (!ids.length) return;
     const controller = new AbortController();
-    const loadAll = (only = ids) => Promise.all(only.map((id) => loadOne(id, controller.signal)));
+    const loadAll = () => Promise.all(ids.map((id) => loadOne(id, controller.signal)));
     loadAll();
-    const interval = poll
-      ? setInterval(
-          () => loadAll(ids.filter((id) => isRunning(id) || results[id]?.payload?.stale)),
-          POLL_MS,
-        )
-      : null;
+    const interval = poll ? setInterval(loadAll, POLL_MS) : null;
     return () => {
       controller.abort();
       if (interval) clearInterval(interval);
