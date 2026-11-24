@@ -249,6 +249,7 @@ def test_facet_counts_cover_every_run():
         "status": {"pending": 2, "failed": 1},
         "recipe": {"slime": 2, "miles": 1},
         "group": {"nightly": 2, "(no group)": 1},
+        "project": {"(no project)": 3},
         "training_type": {"rl": 3},
         "tags": {},
     }
