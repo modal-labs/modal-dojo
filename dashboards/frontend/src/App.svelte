@@ -6,6 +6,7 @@
   import DashboardHeader from "./components/DashboardHeader.svelte";
   import TrainingPage from "./pages/TrainingPage.svelte";
   import TrainingRunDetailPage from "./pages/TrainingRunDetailPage.svelte";
+  import ProjectPage from "./pages/ProjectPage.svelte";
   import EvalsPage from "./pages/EvalsPage.svelte";
   import MetricsPage from "./pages/MetricsPage.svelte";
   import {
@@ -56,6 +57,8 @@
   let activePage = $state("training");
   const sidebar = createSidebarCollapsedState();
   let activeTrainingRunId = $state(null);
+  // Project workspace page (/training/project/<name>), when open.
+  let activeProjectName = $state(null);
   // When set (and no full detail page is open), the training list shows a
   // summary drawer for this run — set by "Collapse" on the detail page.
   let drawerRunId = $state(null);
@@ -93,8 +96,16 @@
     return "training";
   }
 
+  const PROJECT_PATH_PREFIX = "/training/project/";
+
+  function projectFromPath(pathname) {
+    if (!pathname.startsWith(PROJECT_PATH_PREFIX)) return null;
+    const tail = pathname.slice(PROJECT_PATH_PREFIX.length).split("/")[0];
+    return tail ? decodeURIComponent(tail) : null;
+  }
+
   function runIdFromPath(pathname) {
-    if (!pathname.startsWith("/training/")) return null;
+    if (!pathname.startsWith("/training/") || pathname.startsWith(PROJECT_PATH_PREFIX)) return null;
     const tail = pathname.slice("/training/".length).split("/")[0];
     return tail ? decodeURIComponent(tail) : null;
   }
@@ -119,6 +130,7 @@
   if (typeof window !== "undefined") {
     activePage = pageFromPath(window.location.pathname);
     activeTrainingRunId = runIdFromPath(window.location.pathname);
+    activeProjectName = projectFromPath(window.location.pathname);
     compareRunIds = compareRunIdsFromLocation();
   }
 
@@ -126,6 +138,7 @@
     const syncPageWithPath = () => {
       activePage = pageFromPath(window.location.pathname);
       activeTrainingRunId = runIdFromPath(window.location.pathname);
+      activeProjectName = projectFromPath(window.location.pathname);
       compareRunIds = compareRunIdsFromLocation();
     };
 
@@ -163,7 +176,7 @@
     let refresh = null;
 
     const shouldRefresh = () =>
-      !(activePage === "training" && activeTrainingRunId);
+      !(activePage === "training" && (activeTrainingRunId || activeProjectName));
 
     const startPolling = () => {
       if (refresh !== null) return;
@@ -482,12 +495,13 @@
   $effect(() => {
     if (
       !activeTrainingRunId &&
+      !activeProjectName &&
       !hasLoadedRuns &&
       !initialRunsLoadStarted
     ) {
       initialRunsLoadStarted = true;
       void loadRuns();
-    } else if (activeTrainingRunId && !hasLoadedRuns) {
+    } else if ((activeTrainingRunId || activeProjectName) && !hasLoadedRuns) {
       loading = false;
     }
     if (activePage === "evals" && !hasLoadedEvals) {
@@ -818,6 +832,7 @@
   );
 
   let statusText = $derived.by(() => {
+    if (activePage === "training" && activeProjectName) return activeProjectName;
     if (activePage === "training" && activeTrainingRunId) return "run details";
     if (activePage === "training" && loading) return "loading...";
     if (activePage === "evals" && loadingEvals) return "loading...";
@@ -926,6 +941,7 @@
     if (page !== activePage) mainEl?.scrollTo(0, 0);
     activePage = page;
     activeTrainingRunId = null;
+    activeProjectName = null;
     drawerRunId = null;
     if (typeof window === "undefined") return;
     const targetPath =
@@ -1002,6 +1018,7 @@
 
   function backToTrainingList() {
     activeTrainingRunId = null;
+    activeProjectName = null;
     drawerRunId = null;
     if (typeof window === "undefined") return;
     if (window.location.pathname !== pagePaths.training) {
@@ -1009,10 +1026,24 @@
     }
   }
 
+  // Opening a project shows its workspace page (a real route, like a run).
+  function openProject(name) {
+    activePage = "training";
+    drawerRunId = null;
+    activeTrainingRunId = null;
+    activeProjectName = name;
+    if (typeof window === "undefined") return;
+    const target = `${PROJECT_PATH_PREFIX}${encodeURIComponent(name)}`;
+    if (window.location.pathname !== target) {
+      window.history.pushState({}, "", target);
+    }
+  }
+
   // Opening a run shows the full detail page (a real route, not a drawer).
   function openTrainingRunDetail(runId) {
     activePage = "training";
     drawerRunId = null;
+    activeProjectName = null;
     activeTrainingRunId = runId;
     if (typeof window === "undefined") return;
     const target = `${pagePaths.training}/${encodeURIComponent(runId)}`;
@@ -1081,7 +1112,18 @@
         onRefresh={() => load()}
       />
 
-    {#if activePage === "training" && activeTrainingRunId}
+    {#if activePage === "training" && activeProjectName}
+      <ProjectPage
+        project={activeProjectName}
+        {getStatus}
+        {modelName}
+        {showFrameworkStatus}
+        {selectedRunIds}
+        onToggleRunSelected={toggleRunSelected}
+        onOpenDetail={openTrainingRunDetail}
+        onBack={backToTrainingList}
+      />
+    {:else if activePage === "training" && activeTrainingRunId}
       <TrainingRunDetailPage
         runId={activeTrainingRunId}
         initialRun={activeTrainingRun}
@@ -1155,6 +1197,7 @@
         onToggleRunSelected={toggleRunSelected}
         onClearRunSelection={() => (selectedRunIds = new Set())}
         onCompareMetrics={openMetricsCompare}
+        onOpenProject={openProject}
       />
     {:else if activePage === "metrics"}
       <MetricsPage

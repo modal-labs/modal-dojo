@@ -1,7 +1,7 @@
 <script>
   // Multi-run metric panels shared by the Metrics compare page and the
-  // Training runs page's project sections: fetch each run's scalars, union
-  // the metric keys into prefix-grouped panels, one colored line per run.
+  // project workspace page: fetch each run's scalars, union the metric keys
+  // into prefix-grouped panels, one colored line per run.
   import ChartSkeleton from "./ChartSkeleton.svelte";
   import CompareLineChart from "./CompareLineChart.svelte";
   import GroupSection from "./GroupSection.svelte";
