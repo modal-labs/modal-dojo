@@ -348,7 +348,11 @@
         <div class="flex items-center gap-[8px] shrink-0">
           <button
             class="inline-flex items-center gap-[6px] [border:1px_solid_var(--color-c-gray-10,#2f2f2f)] rounded-[6px] p-[4px_8px] [font:inherit] text-[12px] font-medium leading-[16px] text-(--muted) bg-transparent cursor-pointer ghost-hover"
-            onclick={() => onOpenDetail(selectedRun.run_id)}
+            onclick={(event) => {
+              if (!event.shiftKey) return onOpenDetail(selectedRun.run_id);
+              const url = new URL(`/training/${encodeURIComponent(selectedRun.run_id)}`, window.location.href);
+              window.open(url.href, "_blank", "noopener,noreferrer");
+            }}
             title="Expand to full view"
           >
             <Maximize2 size={12} />
