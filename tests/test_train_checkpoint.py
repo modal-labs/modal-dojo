@@ -267,9 +267,9 @@ def test_auto_resume_drops_extra_config_start_rollout_id(recipe, tmp_path) -> No
 
 
 def test_bridge_ref_load_must_hold_a_checkpoint(tmp_path) -> None:
-    with pytest.raises(RuntimeError, match="randomly initialized"):
+    with pytest.raises(RuntimeError, match="missing or empty"):
         _require_bridge_ref_load(str(tmp_path / "missing"))
-    with pytest.raises(RuntimeError, match="randomly initialized"):
+    with pytest.raises(RuntimeError, match="missing or empty"):
         _require_bridge_ref_load(str(tmp_path))
 
     (tmp_path / "config.json").write_text("{}")

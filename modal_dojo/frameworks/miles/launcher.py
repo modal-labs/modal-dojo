@@ -172,21 +172,11 @@ def _unresumable_save_dirs(save_root: str) -> list[str]:
 
 
 def _require_bridge_ref_load(ref_load: str) -> None:
-    """Refuse a bridge-mode ``ref_load`` that holds no checkpoint.
-
-    Bridge mode converts nothing into ``ref_load``, and Miles builds the model without
-    weights before loading them from there. Given a missing or empty directory it
-    only warns and trains from randomly initialized weights.
-    """
-    try:
-        empty = not os.listdir(ref_load)
-    except OSError:
-        empty = True
-    if empty:
+    """Raise when a bridge-mode ``ref_load`` is missing or empty."""
+    if not (os.path.isdir(ref_load) and os.listdir(ref_load)):
         raise RuntimeError(
-            f"ref_load {ref_load!r} is missing or empty, so Miles would train from "
-            "randomly initialized weights. Leave ref_load unset to load the Hugging "
-            "Face checkpoint, or point it at an existing checkpoint."
+            f"ref_load {ref_load!r} is missing or empty; "
+            "Miles would train from random weights."
         )
 
 
