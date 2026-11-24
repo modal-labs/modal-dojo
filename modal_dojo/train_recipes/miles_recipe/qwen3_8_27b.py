@@ -19,7 +19,6 @@ class Qwen3_8_27B_Miles_LoRA_Recipe(MilesRecipe):
     """
 
     model_config_class: ClassVar[type[ModelConfig]] = Qwen3_8_27B
-    # This Miles builds no MTP head under LoRA (radixark/miles#4041).
     docker_image: str = (
         "modalresearch/miles:dojo-dev-202610140350@sha256:"
         "97438bed2a81d8e114f4e218331e9bfce8a8cb6e0d8eb21361261d8cf888903c"
@@ -65,12 +64,9 @@ class Qwen3_8_27B_Miles_LoRA_Recipe(MilesRecipe):
     use_dynamic_batch_size: bool = False
     micro_batch_size: MicroBatchSize = 1
     seq_length: int = 131072
-    # Miles' qwen3.5 model args leave Megatron's 4096 default.
     max_position_embeddings: int = 131072
     max_tokens_per_gpu: MicroBatchSize = 131072
     log_probs_chunk_size: int = 4096
-    # Without recompute a 16k-token sample runs out of memory; sequence parallelism
-    # is what lets a window-length one fit.
     recompute_granularity: str | None = "full"
     recompute_method: str | None = "uniform"
     recompute_num_layers: int | None = 1
