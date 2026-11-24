@@ -89,9 +89,9 @@ class Qwen3_8_27B_Miles_LoRA_Recipe(MilesRecipe):
 
 @dataclass(config=ConfigDict(extra="forbid", arbitrary_types_allowed=True))
 class Qwen3_8_27B_Miles_LoRA_256k_Recipe(Qwen3_8_27B_Miles_LoRA_Recipe):
-    """The same recipe with a 262k context."""
+    """The same recipe with a 262k context, trained at TP4 x DP2."""
 
-    log_probs_backend: str = "fused"
+    tensor_model_parallel_size: int = 4
     rollout_max_context_len: int = 262144
     rollout_max_prompt_len: int = 229376
     seq_length: int = 262144
