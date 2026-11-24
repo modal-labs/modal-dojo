@@ -278,7 +278,7 @@ def _ship_harbor_tasks(
                     local, remote_path=remote_roots[local], copy=True
                 )
             ds = copy.copy(ds)
-            ds.path, ds.git_url, ds.git_commit_id = remote_roots[local], None, None
+            ds.path = remote_roots[local]
         shipped.append(ds)
     return image, shipped
 
