@@ -14,6 +14,7 @@ from modal_dojo.train_recipes.gpu_allocation import gpu_memory_gib
 GIB = 1024**3
 
 _UNMODELED_CFG_HINTS = ("engram", "index_", "dspark_", "nextn", "vision")
+_LM_HEAD_TILE_ROWS = 4096
 _MULTI_TURN_KNOBS = (
     "custom_generate_function",
     "custom_generate_function_path",
@@ -214,7 +215,12 @@ def _peak_gib(
         else layer * arch.num_layers
     ) / GIB
     # bf16 logits per token; fp32 softmax + bf16 logits grad per loss token.
-    if get("log_probs_backend") == "fused":
+    backend = get("log_probs_backend")
+    logit_tokens = tokens
+    if backend == "fused_lm_head":
+        tile = int(get("log_probs_chunk_size") or 0)
+        logit_tokens = min(tokens, tile if tile > 0 else _LM_HEAD_TILE_ROWS)
+    if backend in ("fused", "fused_lm_head"):
         loss_tokens = 0
     elif (
         response
@@ -225,7 +231,7 @@ def _peak_gib(
         loss_tokens = min(tokens, int(get("micro_batch_size") or 1) * int(response))
     else:
         loss_tokens = tokens
-    logits = (tokens * 2 + loss_tokens * 6) * arch.vocab_size / tp / GIB
+    logits = (logit_tokens * 2 + loss_tokens * 6) * arch.vocab_size / tp / GIB
 
     colocate = get("colocate")
     no_rollout = get("no_offload_rollout")

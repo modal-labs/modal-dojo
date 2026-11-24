@@ -151,6 +151,9 @@ def test_softmax_and_logits_grad_span_the_loss_region() -> None:
     assert peak(log_probs_backend="fused") == pytest.approx(
         whole_sample - 32768 * per_token
     )
+    assert peak(log_probs_backend="fused_lm_head") == pytest.approx(
+        whole_sample - 32768 * per_token - (32768 - 4096) * per_token / 3
+    )
 
 
 def test_lora_recipe_estimated() -> None:
