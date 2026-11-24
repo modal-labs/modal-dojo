@@ -1255,12 +1255,14 @@ def fastapi_app():
         status: list[str] | None,
         recipe: list[str] | None,
         group: list[str] | None,
+        project: list[str] | None,
         training_type: list[str] | None,
     ) -> dict[str, set[str]]:
         selected = {
             "status": status,
             "recipe": recipe,
             "group": group,
+            "project": project,
             "training_type": training_type,
         }
         return {name: set(values) for name, values in selected.items() if values}
@@ -1293,6 +1295,7 @@ def fastapi_app():
         status: FacetParam = None,
         recipe: FacetParam = None,
         group: FacetParam = None,
+        project: FacetParam = None,
         training_type: FacetParam = None,
     ):
         if limit is not None and limit < 1:
@@ -1308,7 +1311,7 @@ def fastapi_app():
             for name, metadata in run_list_field_metadata().items()
             if metadata.get("filterable") and name not in FACET_NAMES
         }
-        facets = _requested_facets(status, recipe, group, training_type)
+        facets = _requested_facets(status, recipe, group, project, training_type)
         filtered = filter_run_summaries(
             summaries,
             filters=filters,
@@ -1342,6 +1345,7 @@ def fastapi_app():
         status: FacetParam = None,
         recipe: FacetParam = None,
         group: FacetParam = None,
+        project: FacetParam = None,
         training_type: FacetParam = None,
     ):
         summaries = await load_run_summaries()
@@ -1349,7 +1353,7 @@ def fastapi_app():
         counts["matching"] = len(
             filter_run_summaries(
                 summaries,
-                facets=_requested_facets(status, recipe, group, training_type),
+                facets=_requested_facets(status, recipe, group, project, training_type),
                 tags=_requested_tags(request),
                 query=q,
             )

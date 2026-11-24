@@ -41,6 +41,7 @@
   let activeRecipes = $state(new Set());
   let activeStatuses = $state(new Set());
   let activeGroups = $state(new Set());
+  let activeProjects = $state(new Set());
   let activeTags = $state({});
   let activeTrainingTypes = $state(new Set());
   let trainingGroupBy = $state("none");
@@ -50,6 +51,7 @@
   let seenRecipes = new Set();
   let seenStatuses = new Set();
   let seenGroups = new Set();
+  let seenProjects = new Set();
   let seenTrainingTypes = new Set();
   let activePage = $state("training");
   const sidebar = createSidebarCollapsedState();
@@ -199,10 +201,19 @@
   // Mirrors the server's facet buckets (`run_facet_values`), which is what the
   // filter chips and counts are keyed by.
   const NO_GROUP = "(no group)";
+  const NO_PROJECT = "(no project)";
   const UNTAGGED_RECIPE = "(untagged)";
 
   function getGroup(run) {
     return safeText(run.group_id) || NO_GROUP;
+  }
+
+  function getProject(run) {
+    return (
+      safeText(run.config_summary?.metric_project) ||
+      safeText(run.config_summary?.wandb_project) ||
+      NO_PROJECT
+    );
   }
 
   function getStatus(run) {
@@ -261,12 +272,14 @@
       status: statuses,
       recipe: recipes,
       group: groups,
+      project: projects,
       training_type: trainingTypes,
     };
     const selections = {
       status: activeStatuses,
       recipe: activeRecipes,
       group: activeGroups,
+      project: activeProjects,
       training_type: activeTrainingTypes,
     };
     const facets = {};
@@ -295,6 +308,7 @@
       recipe: [seenRecipes, activeRecipes],
       status: [seenStatuses, activeStatuses],
       group: [seenGroups, activeGroups],
+      project: [seenProjects, activeProjects],
       training_type: [seenTrainingTypes, activeTrainingTypes],
     };
     for (const [facet, [seenValues, active]] of Object.entries(seen)) {
@@ -310,6 +324,7 @@
       if (facet === "recipe") activeRecipes = next;
       else if (facet === "status") activeStatuses = next;
       else if (facet === "group") activeGroups = next;
+      else if (facet === "project") activeProjects = next;
       else activeTrainingTypes = next;
     }
   }
@@ -319,13 +334,14 @@
   // not take the rows down with it: count the loaded window instead. Exact
   // once everything is paged in, an undercount before that.
   function countsFromPage(page) {
-    const buckets = { status: {}, recipe: {}, group: {}, training_type: {}, tags: Object.create(null) };
+    const buckets = { status: {}, recipe: {}, group: {}, project: {}, training_type: {}, tags: Object.create(null) };
     for (const run of page) {
       const values = {
         status: getStatus(run),
         recipe:
           safeText(run.recipe) || safeText(run.framework) || UNTAGGED_RECIPE,
         group: getGroup(run),
+        project: getProject(run),
         training_type: run.training_type ?? "rl",
       };
       for (const [name, value] of Object.entries(values)) {
@@ -398,6 +414,7 @@
         activeRecipes = new Set();
         activeStatuses = new Set();
         activeGroups = new Set();
+        activeProjects = new Set();
         activeTrainingTypes = new Set();
         activeTags = {};
       }
@@ -481,6 +498,7 @@
   let recipeCounts = $derived(runCounts.recipe || {});
   let statusCounts = $derived(runCounts.status || {});
   let groupCounts = $derived(runCounts.group || {});
+  let projectCounts = $derived(runCounts.project || {});
   let tagCounts = $derived(runCounts.tags || {});
   let trainingTypeCounts = $derived(runCounts.training_type || {});
 
@@ -492,6 +510,14 @@
     Object.keys(groupCounts).sort((a, b) => {
       if (a === NO_GROUP) return 1;
       if (b === NO_GROUP) return -1;
+      return a.localeCompare(b);
+    }),
+  );
+  // "(no project)" pinned last, mirroring "(no group)" in the group filter.
+  let projects = $derived(
+    Object.keys(projectCounts).sort((a, b) => {
+      if (a === NO_PROJECT) return 1;
+      if (b === NO_PROJECT) return -1;
       return a.localeCompare(b);
     }),
   );
@@ -537,6 +563,7 @@
   });
 
   const trainingGroupKeyFns = {
+    project: getProject,
     group: getGroup,
     dataset: (run) => safeText(run.dataset) || "(no dataset)",
     model: modelName,
@@ -848,6 +875,21 @@
     activeGroups = new Set();
   }
 
+  function toggleProject(project) {
+    const next = new Set(activeProjects);
+    if (next.has(project)) next.delete(project);
+    else next.add(project);
+    activeProjects = next;
+  }
+
+  function selectAllProjects() {
+    activeProjects = new Set(projects);
+  }
+
+  function clearProjects() {
+    activeProjects = new Set();
+  }
+
   function addTagValue(key, value) {
     const values = Object.hasOwn(activeTags, key) ? activeTags[key] : [];
     if (!value || values.includes(value)) return;
@@ -923,6 +965,10 @@
     groupCounts,
     activeGroups,
     allGroupsActive: activeGroups.size === groups.length,
+    projects,
+    projectCounts,
+    activeProjects,
+    allProjectsActive: activeProjects.size === projects.length,
     tagCounts,
     activeTags,
     trainingTypes,
@@ -938,6 +984,9 @@
     onToggleGroup: toggleGroup,
     onSelectAllGroups: selectAllGroups,
     onClearGroups: clearGroups,
+    onToggleProject: toggleProject,
+    onSelectAllProjects: selectAllProjects,
+    onClearProjects: clearProjects,
     onAddTagValue: addTagValue,
     onRemoveTagValue: removeTagValue,
     onClearTags: clearTags,
@@ -1063,6 +1112,9 @@
         {groups}
         {groupCounts}
         {activeGroups}
+        {projects}
+        {projectCounts}
+        {activeProjects}
         {tagCounts}
         {activeTags}
         {trainingTypes}
@@ -1090,6 +1142,9 @@
         onToggleGroup={toggleGroup}
         onSelectAllGroups={selectAllGroups}
         onClearGroups={clearGroups}
+        onToggleProject={toggleProject}
+        onSelectAllProjects={selectAllProjects}
+        onClearProjects={clearProjects}
         onAddTagValue={addTagValue}
         onRemoveTagValue={removeTagValue}
         onClearTags={clearTags}

@@ -6,6 +6,7 @@
   import GroupSection from "../components/GroupSection.svelte";
   import MinimalTableSkeleton from "../components/MinimalTableSkeleton.svelte";
   import ResizableTable from "../components/ResizableTable.svelte";
+  import RunMetricsPanels from "../components/RunMetricsPanels.svelte";
   import RunSummary from "../components/RunSummary.svelte";
   import StatusPill from "../components/StatusPill.svelte";
   import TimeAgo from "../components/TimeAgo.svelte";
@@ -33,6 +34,9 @@
     groups,
     groupCounts,
     activeGroups,
+    projects,
+    projectCounts,
+    activeProjects,
     tagCounts,
     activeTags,
     trainingTypes,
@@ -60,6 +64,9 @@
     onToggleGroup,
     onSelectAllGroups,
     onClearGroups,
+    onToggleProject,
+    onSelectAllProjects,
+    onClearProjects,
     onAddTagValue,
     onRemoveTagValue,
     onClearTags,
@@ -291,6 +298,10 @@
       {groupCounts}
       {activeGroups}
       allGroupsActive={activeGroups.size === groups.length}
+      {projects}
+      {projectCounts}
+      {activeProjects}
+      allProjectsActive={activeProjects.size === projects.length}
       {tagCounts}
       {activeTags}
       {trainingTypes}
@@ -308,6 +319,9 @@
       onToggleGroup={onToggleGroup}
       onSelectAllGroups={onSelectAllGroups}
       onClearGroups={onClearGroups}
+      onToggleProject={onToggleProject}
+      onSelectAllProjects={onSelectAllProjects}
+      onClearProjects={onClearProjects}
       onAddTagValue={onAddTagValue}
       onRemoveTagValue={onRemoveTagValue}
       onClearTags={onClearTags}
@@ -539,6 +553,15 @@
                   </span>
                 {/if}
               {/snippet}
+              {#if groupBy === "project"}
+                <div class="mb-[12px]">
+                  <RunMetricsPanels
+                    runIds={group.runs.map((run) => run.run_id)}
+                    isRunning={(id) =>
+                      (group.runs.find((run) => run.run_id === id)?.status || "").toLowerCase() === "running"}
+                  />
+                </div>
+              {/if}
               {@render runsTable(group.runs, "360px")}
             </GroupSection>
           {/each}

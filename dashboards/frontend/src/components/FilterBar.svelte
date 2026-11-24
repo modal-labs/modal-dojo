@@ -8,12 +8,14 @@
     recipes, recipeCounts, activeRecipes, allRecipesActive,
     statuses, statusCounts, activeStatuses, allStatusesActive,
     groups, groupCounts, activeGroups, allGroupsActive,
+    projects, projectCounts, activeProjects, allProjectsActive,
     tagCounts, activeTags,
     trainingTypes, trainingTypeCounts, activeTrainingTypes, allTrainingTypesActive,
     search = $bindable(), groupBy = $bindable(),
     onToggleRecipe, onSelectAllRecipes, onClearRecipes,
     onToggleStatus, onSelectAllStatuses, onClearStatuses,
     onToggleGroup, onSelectAllGroups, onClearGroups,
+    onToggleProject, onSelectAllProjects, onClearProjects,
     onAddTagValue, onRemoveTagValue, onClearTags,
     onToggleTrainingType, onSelectAllTrainingTypes, onClearTrainingTypes,
     // Pickers that list runs flat (the Metrics page's Add-run modal) hide it.
@@ -40,6 +42,7 @@
     facet("status", "Status", statuses, statusCounts, activeStatuses, allStatusesActive, onToggleStatus, onClearStatuses, onSelectAllStatuses, (value) => value.charAt(0).toUpperCase() + value.slice(1)),
     facet("recipe", "Recipe", recipes, recipeCounts, activeRecipes, allRecipesActive, onToggleRecipe, onClearRecipes, onSelectAllRecipes),
     facet("group", "Group", groups, groupCounts, activeGroups, allGroupsActive, onToggleGroup, onClearGroups, onSelectAllGroups),
+    facet("project", "Project", projects, projectCounts, activeProjects, allProjectsActive, onToggleProject, onClearProjects, onSelectAllProjects),
     facet("training_type", "Type", trainingTypes, trainingTypeCounts, activeTrainingTypes, allTrainingTypesActive, onToggleTrainingType, onClearTrainingTypes, onSelectAllTrainingTypes, (value) => value.toUpperCase()),
     {
       id: "tags", label: "Tag", active: Object.values(activeTags).some((values) => values.length),
@@ -77,6 +80,7 @@
 
   const groupByOptions = [
     { value: "none", label: "None" },
+    { value: "project", label: "Project" },
     { value: "group", label: "Group" },
     { value: "dataset", label: "Dataset" },
     { value: "model", label: "Model" },
