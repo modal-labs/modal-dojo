@@ -130,13 +130,27 @@ def test_logits_backward_counted() -> None:
     assert peak > 79.2
 
 
-def test_fused_log_probs_backend_keeps_only_logits() -> None:
-    torch_peak, _ = _peak_gib(_QWEN3_5_4B, _qwen3_5_knobs(), 79.2)
-    fused_peak, _ = _peak_gib(
-        _QWEN3_5_4B, _qwen3_5_knobs(log_probs_backend="fused"), 79.2
+def test_softmax_and_logits_grad_span_the_loss_region() -> None:
+    knobs = {
+        "actor_num_nodes": 1,
+        "actor_num_gpus_per_node": 1,
+        "lora_rank": 16,
+        "recompute_granularity": "full",
+        "rollout_max_context_len": 32768,
+        "rollout_max_response_len": 4096,
+    }
+    per_token = _QWEN3_5_4B.vocab_size * 6 / 2**30
+
+    def peak(**overrides) -> float:
+        return _peak_gib(_QWEN3_5_4B, knobs | overrides, 79.2)[0]
+
+    whole_sample = peak(use_session_server=True)
+    assert peak(use_dynamic_batch_size=True, max_tokens_per_gpu=32768) == whole_sample
+    assert peak(loss_type="sft_loss") == whole_sample
+    assert peak() == pytest.approx(whole_sample - (32768 - 4096) * per_token)
+    assert peak(log_probs_backend="fused") == pytest.approx(
+        whole_sample - 32768 * per_token
     )
-    saved = 32768 * _QWEN3_5_4B.vocab_size * 6 / 2**30
-    assert fused_peak == pytest.approx(torch_peak - saved)
 
 
 def test_lora_recipe_estimated() -> None:

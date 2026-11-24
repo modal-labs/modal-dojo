@@ -14,6 +14,14 @@ from modal_dojo.train_recipes.gpu_allocation import gpu_memory_gib
 GIB = 1024**3
 
 _UNMODELED_CFG_HINTS = ("engram", "index_", "dspark_", "nextn", "vision")
+# A multi-turn sample's loss region runs from its first assistant token to the end.
+_MULTI_TURN_KNOBS = (
+    "custom_generate_function",
+    "custom_generate_function_path",
+    "rollout_function",
+    "rollout_function_path",
+    "use_session_server",
+)
 
 
 def _hf_cfg(model_name: str, revision: str | None = None) -> dict | None:
@@ -206,10 +214,21 @@ def _peak_gib(
         if recompute == "full"
         else layer * arch.num_layers
     ) / GIB
-    # bf16 logits + fp32 copy saved by the fused cross-entropy + bf16 logits grad.
-    # Miles' fused log-prob backend keeps only the logits.
-    logit_bytes = 2 if get("log_probs_backend") == "fused" else 8
-    logits = tokens * arch.vocab_size / tp * logit_bytes / GIB
+    # bf16 logits for every token, plus the fp32 softmax and bf16 logits grad over the
+    # loss region. Miles' fused log-prob backend keeps neither.
+    if get("log_probs_backend") == "fused":
+        loss_tokens = 0
+    elif (
+        response
+        and not get("use_dynamic_batch_size")
+        and get("loss_type") != "sft_loss"
+        and not any(get(k) for k in _MULTI_TURN_KNOBS)
+    ):
+        # One single-turn sample per slot: only its response is in the loss.
+        loss_tokens = min(tokens, int(get("micro_batch_size") or 1) * int(response))
+    else:
+        loss_tokens = tokens
+    logits = (tokens * 2 + loss_tokens * 6) * arch.vocab_size / tp / GIB
 
     colocate = get("colocate")
     no_rollout = get("no_offload_rollout")
