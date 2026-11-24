@@ -15,7 +15,7 @@ from modal_dojo.train_recipes.miles_recipe.recipe import MilesRecipe
 class Qwen3_8_27B_Miles_LoRA_Recipe(MilesRecipe):
     """Qwen3.8-27B rank-16 bridge LoRA, fully async, 131k context on 16 H200s.
 
-    One node trains at TP4 x DP2 and the other serves two TP4 engines.
+    One node trains at TP2 x DP4 and the other serves two TP4 engines.
     """
 
     model_config_class: ClassVar[type[ModelConfig]] = Qwen3_8_27B
@@ -35,7 +35,7 @@ class Qwen3_8_27B_Miles_LoRA_Recipe(MilesRecipe):
     actor_num_gpus_per_node: int = 8
     rollout_num_gpus: int | None = 8
     rollout_num_gpus_per_engine: int = 4
-    tensor_model_parallel_size: int = 4
+    tensor_model_parallel_size: int = 2
 
     async_mode: bool = True
     fully_async: bool = True
@@ -66,7 +66,7 @@ class Qwen3_8_27B_Miles_LoRA_Recipe(MilesRecipe):
     seq_length: int = 131072
     max_position_embeddings: int = 131072
     max_tokens_per_gpu: MicroBatchSize = 131072
-    log_probs_chunk_size: int = 4096
+    log_probs_backend: str = "fused"
     recompute_granularity: str | None = "full"
     recompute_method: str | None = "uniform"
     recompute_num_layers: int | None = 1
