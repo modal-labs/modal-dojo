@@ -2,182 +2,89 @@
 # order: 2
 # ---
 #
-# # Training multi-turn coding agents
-#
-# This tutorial trains [Qwen3.6-27B](https://huggingface.co/Qwen/Qwen3.6-27B) on
-# [SWE-rebench V2](https://huggingface.co/datasets/nebius/SWE-rebench-V2).
-# During rollouts, the agent inspects repositories, edits code, and runs commands
-# in a [Modal Sandbox](https://modal.com/docs/guide/sandboxes) using
-# [Harbor](https://docs.harborframework.com/).
+# # Training a coding agent on competitive programming with Harbor
 
-import json
-from collections.abc import Iterator
+# Start by importing the necessary packages.
+
 from pathlib import Path
-from typing import Any
-from uuid import uuid4
 
 from modal_dojo import (
-    DatasetConfig,
-    Qwen3_6_27B,
-    Qwen3_6_27B_Recipe,
+    HarborAgent,
+    HarborTasks,
+    Qwen3_5_4B,
+    Qwen3_5_4B_Miles_Recipe,
     TrainConfig,
 )
 
-from tutorials.coding_agent.dataset import (
-    DATA_VOLUME_NAME,
-    SLIME_GIT_REPOSITORY,
-    SLIME_GIT_REVISION,
-)
+from tutorials.coding_agent.tasks import write_tasks
 
-# ## Get the dataset
-#
-# We must first convert SWE-rebench into Harbor tasks, and split/sample
-# the data to create balanced, repository-disjoint train/eval sets. We also run
-# 8 episodes per task on 300 training tasks, without updating the model. We keep
-# tasks with a mix of successes and failures, so that we only train on tasks
-# with useful GRPO learning signal.
-# Since this is verbose, we have a
-# [separate preprocessing script](https://github.com/modal-labs/modal-dojo/blob/main/tutorials/coding_agent/dataset.py).
-#
-# Run with:
-#
-# ```bash
-# uv run -m tutorials.coding_agent.dataset
-# ```
+# Define the directory we want to download our tasks to.
 
-DATASET_ROOT = "swe_rebench_v2"
-DATA_ROOT = Path("/data") / DATASET_ROOT
+TASKS = Path(__file__).parent / "tasks"
 
-TRAIN_SUBSET = "train-300-mixed-reward-qwen3-6-27b-agentic-n8"
-EVAL_SUBSETS = ("eval",)
+# We want to penalize completions to stay below our `max_seq_len` (the rollout's max length). We noticed a lot of truncations (rollout hitting context limits) and length penalty helps reduce that.
 
-class AgentTaskDataset(DatasetConfig):
-    def __init__(self, path: Path) -> None:
-        self.path = path
+def length_penalty(args, samples):
+    from miles.ray.rollout.train_data_conversion import _normalize_rewards_by_rollout
+    from miles.utils.types import Sample
 
-    def input_key(self) -> str:
-        return "prompt"
+    start = 0.75 * args.max_seq_len
 
-    def label_key(self) -> str:
-        return "label"
+    def penalty(s):
+        if s.status == Sample.Status.TRUNCATED:
+            return 0.5
+        return 0.5 * min(1.0, max(0.0, (len(s.tokens) - start) / (args.max_seq_len - start)))
 
-    def apply_chat_template(self) -> bool:
-        return False
+    raw = [float(s.get_reward_value(args)) for s in samples]
+    shaped = [r - penalty(s) for r, s in zip(raw, samples, strict=True)]
+    return raw, _normalize_rewards_by_rollout(args, samples, shaped, None)
 
-    def rows(self) -> Iterator[dict[str, Any]]:
-        with self.path.open() as source:
-            for line in source:
-                if line.strip():
-                    yield json.loads(line)
 
-# ## Start training
-#
-# With the [Qwen3_6_27B_Recipe](https://dojo.modal.dev/reference/qwen3_6_27b_recipe)
-# recipe class, it's just that simple.
+# We can define the agent harness we want to train on. For this example, we turn off summarization.
 
-RUN_NAME = f"coding-agent-{uuid4().hex}"
+agent = HarborAgent("terminus-2", enable_summarize=False, record_terminal_session=False)
 
 config = TrainConfig(
-    model=Qwen3_6_27B(),
-    dataset=AgentTaskDataset(DATA_ROOT / f"{TRAIN_SUBSET}.jsonl"),
-    recipe=Qwen3_6_27B_Recipe(
-        slime_git_repository=SLIME_GIT_REPOSITORY,
-        slime_git_revision=SLIME_GIT_REVISION,
-        data_volume_name=DATA_VOLUME_NAME,
-        memory=(1024, 2 * 1024 * 1024),
-        train_function_kwargs={"ephemeral_disk": 2 * 1024 * 1024},
-        environment={
-            "PYTHONPATH": "/root/Megatron-LM/:/root/slime",
-            "CUDA_DEVICE_MAX_CONNECTIONS": "1",
-            "NCCL_NVLS_ENABLE": "1",
-            "NCCL_RAS_ENABLE": "0",
-            "PYTORCH_CUDA_ALLOC_CONF": "expandable_segments:True",
-            "ASYNC_RL_TASK_ROOT": "/data",
-            "SLIME_AGENT_SANDBOX_CPU": "2",
-            "SLIME_AGENT_SANDBOX_MEMORY_MB": "4096",
-            "ASYNC_RL_REWARD_SHAPE": "binary",
-        },
-        image_run_commands=[
-            "apt-get update && apt-get install -y --no-install-recommends "
-            "rdma-core libibverbs1 ibverbs-providers",
-            "uv pip install --system modal==1.6.1 'mini-swe-agent==2.4.6' 'datasets==5.1.0'",
-        ],
-        image_env={"MSWEA_SILENT_STARTUP": "1"},
-        app_tags={"agentic_rollout": "harbor"},
+    model=Qwen3_5_4B(),
+    dataset=HarborTasks(agent=agent, path=str(TASKS), task_glob="train-*"),
+    eval_dataset=HarborTasks(agent=agent, path=str(TASKS), task_glob="eval-*"),
+    recipe=Qwen3_5_4B_Miles_Recipe(
+        name="pi-harbor-code-contests",
+        # a Miles build with the session server
+        docker_image="radixark/miles:dev-202610140350@sha256:c53f65d346a6b364cf89d7dbaa416595a2d5638670b5d82c683214183dca10bd",
+        miles_git_ref="d33406f1139f1fa66305b17b9e91dfa110e3c4ce",
+        ref_load="/checkpoints/Qwen3.5-4B_torch_dist_miles_d33406f",
+        # three 8xH200 nodes: two inference nodes and one training node, connected by RDMA
         gpu_type="H200",
+        cpu=64,
         colocate=False,
-        actor_num_nodes=2,
         actor_num_gpus_per_node=8,
-        rollout_num_gpus=32,
-        rollout_num_gpus_per_engine=2,
-        tensor_model_parallel_size=4,
-        pipeline_model_parallel_size=2,
-        context_parallel_size=2,
-        sequence_parallel=True,
-        conversion_tensor_model_parallel_size=4,
-        conversion_pipeline_model_parallel_size=2,
-        decoder_last_pipeline_num_layers=30,
-        attention_backend="flash",
-        ref_load="",
-        sglang_speculative_algorithm="EAGLE",
-        sglang_speculative_num_steps=3,
-        sglang_speculative_eagle_topk=1,
-        sglang_speculative_num_draft_tokens=4,
-        num_rollout=500,
-        rollout_batch_size=32,
-        n_samples_per_prompt=8,
-        global_batch_size=256,
-        advantage_estimator="grpo",
-        lr=4e-6,
-        lr_decay_style="constant",
-        weight_decay=0.1,
-        eps_clip=0.2,
-        eps_clip_high=None,
-        use_kl_loss=False,
-        kl_coef=0.0,
-        entropy_coef=0.0,
-        rollout_temperature=1.0,
-        rollout_max_response_len=8192,
-        eval_max_response_len=8192,
-        eval_interval=5,
-        n_samples_per_eval_prompt=1,
-        save="/checkpoints",
-        save_interval=5,
-        sglang_server_concurrency=32,
+        rollout_num_gpus=16,
+        async_mode=True,
         max_tokens_per_gpu=16384,
-        log_probs_chunk_size=128,
-        capture_trace=True,
-        custom_rollout_log_function="agentic_rl.metrics.log_rollout_data",
+        num_rollout=100,
+        rollout_batch_size=32,
+        n_samples_per_prompt=16,
+        global_batch_size=512,
+        apply_chat_template_kwargs='{"enable_thinking": false}',
+        eval_interval=10,
+        save_interval=10,
+        kl_loss_coef=0.01,
+        # resample and replace problems where all attempts in a group pass or all fail (no signal) and sample new ones
+        dynamic_sampling_filter_path="miles.rollout.filter_hub.common_filters.apply_reward_nonzero_std_filter",
+        custom_reward_post_process_function=length_penalty,
         extra_config={
-            "custom_generate_function_path": "agentic_rl.generate.generate",
-            "agentic_max_steps": 75,
-            "agentic_episode_timeout": 1800,
-            "agentic_eval_timeout": None,
-            "agentic_exec_timeout": 120,
-            "router_policy": "consistent_hashing",
-            "skip_eval_before_train": False,
+            "max_seq_len": 32768,
+            "use_session_server": True,
+            "tito_model": "qwen35",
+            "log_probs_chunk_size": 4096,
+            "fully_async": True,
+            "session_server_workers": 32
         },
-        eval_config={
-            "defaults": {
-                "n_samples_per_eval_prompt": 1,
-                "temperature": 0.6,
-                "top_p": 1.0,
-            },
-            "datasets": [
-                {
-                    "name": subset,
-                    "path": str(DATA_ROOT / f"{subset}.jsonl"),
-                    "metadata_overrides": {"eval_dataset": subset},
-                }
-                for subset in EVAL_SUBSETS
-            ],
-        },
-        save_debug_rollout_data=(
-            f"/checkpoints/agentic_rollout_dumps/{RUN_NAME}/rollout_{{rollout_id}}.pt"
-        ),
     ),
 )
 
 if __name__ == "__main__":
-    run = config.launch()
-    print(f"run id: {run.training_run_id}")
+    # tasks need to be available locally, our write_tasks function does the required pre-processing and makes them available
+    write_tasks(TASKS)
+    config.launch()
