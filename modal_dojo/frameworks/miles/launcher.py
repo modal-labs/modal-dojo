@@ -174,10 +174,7 @@ def _unresumable_save_dirs(save_root: str) -> list[str]:
 def _require_bridge_ref_load(ref_load: str) -> None:
     """Raise when a bridge-mode ``ref_load`` is missing or empty."""
     if not (os.path.isdir(ref_load) and os.listdir(ref_load)):
-        raise RuntimeError(
-            f"ref_load {ref_load!r} is missing or empty; "
-            "Miles would train from random weights."
-        )
+        raise RuntimeError(f"ref_load {ref_load!r} is missing or empty")
 
 
 def _build_miles_base_image(
