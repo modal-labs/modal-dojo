@@ -208,6 +208,10 @@ _EXPORTS = {
         "modal_dojo.train_recipes.slime_recipe",
         "Qwen3_8_27B_Recipe",
     ),
+    "Qwen3_8_27B_Miles_LoRA_Recipe": (
+        "modal_dojo.train_recipes.miles_recipe",
+        "Qwen3_8_27B_Miles_LoRA_Recipe",
+    ),
     "Qwen3_VL_8B": ("modal_dojo.common.models", "Qwen3_VL_8B"),
     "Qwen3_VL_8B_Recipe": (
         "modal_dojo.train_recipes.slime_recipe",
@@ -327,6 +331,7 @@ __all__ = [
     "Qwen3_6_27B",
     "Qwen3_6_27B_Recipe",
     "Qwen3_8_27B",
+    "Qwen3_8_27B_Miles_LoRA_Recipe",
     "Qwen3_8_27B_Recipe",
     "Qwen3_ASR_1_7B",
     "Qwen3_ASR_1_7B_Recipe",

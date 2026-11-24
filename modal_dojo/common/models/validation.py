@@ -124,6 +124,9 @@ VALIDATION_CONFIGS: set[_ValidationConfig] = {
         "Qwen3.8-27B", Qwen3_8_27B, Framework.SLIME, timeout_s=2 * 60 * 60
     ),
     _ValidationConfig(
+        "Qwen3.8-27B-Miles-LoRA", Qwen3_8_27B, Framework.MILES, timeout_s=2 * 60 * 60
+    ),
+    _ValidationConfig(
         "Moonlight-16B-A3B-Instruct",
         Moonlight_16B_A3B_Instruct,
         Framework.MILES,
