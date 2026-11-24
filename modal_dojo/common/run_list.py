@@ -10,9 +10,10 @@ from modal_dojo.common.run_summary import RunSummary
 
 UNTAGGED_RECIPE = "(untagged)"
 NO_GROUP = "(no group)"
+NO_PROJECT = "(no project)"
 PENDING_STATUS = "pending"
 
-FACET_NAMES = ("status", "recipe", "group", "training_type")
+FACET_NAMES = ("status", "recipe", "group", "project", "training_type")
 
 
 def run_tag_values(summary: RunSummary) -> dict[str, set[str]]:
@@ -54,12 +55,23 @@ def run_list_field_metadata() -> dict[str, dict[str, object]]:
     return metadata
 
 
+def _metric_project(summary: RunSummary) -> str:
+    config = summary.config_summary
+    if hasattr(config, "metric_project"):
+        return config.metric_project or NO_PROJECT
+    if isinstance(config, Mapping):
+        project = config.get("metric_project") or config.get("wandb_project")
+        return str(project) if project else NO_PROJECT
+    return NO_PROJECT
+
+
 def run_facet_values(summary: RunSummary) -> dict[str, str]:
     """Return the buckets the run list's filter chips group a run into."""
     return {
         "status": summary.display_status or PENDING_STATUS,
         "recipe": summary.recipe or summary.framework or UNTAGGED_RECIPE,
         "group": summary.group_id or NO_GROUP,
+        "project": _metric_project(summary),
         "training_type": summary.training_type,
     }
 

@@ -6,6 +6,7 @@
   import DashboardHeader from "./components/DashboardHeader.svelte";
   import TrainingPage from "./pages/TrainingPage.svelte";
   import TrainingRunDetailPage from "./pages/TrainingRunDetailPage.svelte";
+  import ProjectPage from "./pages/ProjectPage.svelte";
   import EvalsPage from "./pages/EvalsPage.svelte";
   import MetricsPage from "./pages/MetricsPage.svelte";
   import {
@@ -41,6 +42,7 @@
   let activeRecipes = $state(new Set());
   let activeStatuses = $state(new Set());
   let activeGroups = $state(new Set());
+  let activeProjects = $state(new Set());
   let activeTags = $state({});
   let activeTrainingTypes = $state(new Set());
   let trainingGroupBy = $state("none");
@@ -50,10 +52,13 @@
   let seenRecipes = new Set();
   let seenStatuses = new Set();
   let seenGroups = new Set();
+  let seenProjects = new Set();
   let seenTrainingTypes = new Set();
   let activePage = $state("training");
   const sidebar = createSidebarCollapsedState();
   let activeTrainingRunId = $state(null);
+  // Project workspace page (/training/project/<name>), when open.
+  let activeProjectName = $state(null);
   // When set (and no full detail page is open), the training list shows a
   // summary drawer for this run — set by "Collapse" on the detail page.
   let drawerRunId = $state(null);
@@ -91,8 +96,16 @@
     return "training";
   }
 
+  const PROJECT_PATH_PREFIX = "/training/project/";
+
+  function projectFromPath(pathname) {
+    if (!pathname.startsWith(PROJECT_PATH_PREFIX)) return null;
+    const tail = pathname.slice(PROJECT_PATH_PREFIX.length).split("/")[0];
+    return tail ? decodeURIComponent(tail) : null;
+  }
+
   function runIdFromPath(pathname) {
-    if (!pathname.startsWith("/training/")) return null;
+    if (!pathname.startsWith("/training/") || pathname.startsWith(PROJECT_PATH_PREFIX)) return null;
     const tail = pathname.slice("/training/".length).split("/")[0];
     return tail ? decodeURIComponent(tail) : null;
   }
@@ -117,6 +130,7 @@
   if (typeof window !== "undefined") {
     activePage = pageFromPath(window.location.pathname);
     activeTrainingRunId = runIdFromPath(window.location.pathname);
+    activeProjectName = projectFromPath(window.location.pathname);
     compareRunIds = compareRunIdsFromLocation();
   }
 
@@ -124,6 +138,7 @@
     const syncPageWithPath = () => {
       activePage = pageFromPath(window.location.pathname);
       activeTrainingRunId = runIdFromPath(window.location.pathname);
+      activeProjectName = projectFromPath(window.location.pathname);
       compareRunIds = compareRunIdsFromLocation();
     };
 
@@ -161,7 +176,7 @@
     let refresh = null;
 
     const shouldRefresh = () =>
-      !(activePage === "training" && activeTrainingRunId);
+      !(activePage === "training" && (activeTrainingRunId || activeProjectName));
 
     const startPolling = () => {
       if (refresh !== null) return;
@@ -199,10 +214,19 @@
   // Mirrors the server's facet buckets (`run_facet_values`), which is what the
   // filter chips and counts are keyed by.
   const NO_GROUP = "(no group)";
+  const NO_PROJECT = "(no project)";
   const UNTAGGED_RECIPE = "(untagged)";
 
   function getGroup(run) {
     return safeText(run.group_id) || NO_GROUP;
+  }
+
+  function getProject(run) {
+    return (
+      safeText(run.config_summary?.metric_project) ||
+      safeText(run.config_summary?.wandb_project) ||
+      NO_PROJECT
+    );
   }
 
   function getStatus(run) {
@@ -261,12 +285,14 @@
       status: statuses,
       recipe: recipes,
       group: groups,
+      project: projects,
       training_type: trainingTypes,
     };
     const selections = {
       status: activeStatuses,
       recipe: activeRecipes,
       group: activeGroups,
+      project: activeProjects,
       training_type: activeTrainingTypes,
     };
     const facets = {};
@@ -295,6 +321,7 @@
       recipe: [seenRecipes, activeRecipes],
       status: [seenStatuses, activeStatuses],
       group: [seenGroups, activeGroups],
+      project: [seenProjects, activeProjects],
       training_type: [seenTrainingTypes, activeTrainingTypes],
     };
     for (const [facet, [seenValues, active]] of Object.entries(seen)) {
@@ -310,6 +337,7 @@
       if (facet === "recipe") activeRecipes = next;
       else if (facet === "status") activeStatuses = next;
       else if (facet === "group") activeGroups = next;
+      else if (facet === "project") activeProjects = next;
       else activeTrainingTypes = next;
     }
   }
@@ -319,13 +347,14 @@
   // not take the rows down with it: count the loaded window instead. Exact
   // once everything is paged in, an undercount before that.
   function countsFromPage(page) {
-    const buckets = { status: {}, recipe: {}, group: {}, training_type: {}, tags: Object.create(null) };
+    const buckets = { status: {}, recipe: {}, group: {}, project: {}, training_type: {}, tags: Object.create(null) };
     for (const run of page) {
       const values = {
         status: getStatus(run),
         recipe:
           safeText(run.recipe) || safeText(run.framework) || UNTAGGED_RECIPE,
         group: getGroup(run),
+        project: getProject(run),
         training_type: run.training_type ?? "rl",
       };
       for (const [name, value] of Object.entries(values)) {
@@ -398,6 +427,7 @@
         activeRecipes = new Set();
         activeStatuses = new Set();
         activeGroups = new Set();
+        activeProjects = new Set();
         activeTrainingTypes = new Set();
         activeTags = {};
       }
@@ -465,12 +495,13 @@
   $effect(() => {
     if (
       !activeTrainingRunId &&
+      !activeProjectName &&
       !hasLoadedRuns &&
       !initialRunsLoadStarted
     ) {
       initialRunsLoadStarted = true;
       void loadRuns();
-    } else if (activeTrainingRunId && !hasLoadedRuns) {
+    } else if ((activeTrainingRunId || activeProjectName) && !hasLoadedRuns) {
       loading = false;
     }
     if (activePage === "evals" && !hasLoadedEvals) {
@@ -481,6 +512,7 @@
   let recipeCounts = $derived(runCounts.recipe || {});
   let statusCounts = $derived(runCounts.status || {});
   let groupCounts = $derived(runCounts.group || {});
+  let projectCounts = $derived(runCounts.project || {});
   let tagCounts = $derived(runCounts.tags || {});
   let trainingTypeCounts = $derived(runCounts.training_type || {});
 
@@ -492,6 +524,14 @@
     Object.keys(groupCounts).sort((a, b) => {
       if (a === NO_GROUP) return 1;
       if (b === NO_GROUP) return -1;
+      return a.localeCompare(b);
+    }),
+  );
+  // "(no project)" pinned last, mirroring "(no group)" in the group filter.
+  let projects = $derived(
+    Object.keys(projectCounts).sort((a, b) => {
+      if (a === NO_PROJECT) return 1;
+      if (b === NO_PROJECT) return -1;
       return a.localeCompare(b);
     }),
   );
@@ -537,6 +577,7 @@
   });
 
   const trainingGroupKeyFns = {
+    project: getProject,
     group: getGroup,
     dataset: (run) => safeText(run.dataset) || "(no dataset)",
     model: modelName,
@@ -791,6 +832,7 @@
   );
 
   let statusText = $derived.by(() => {
+    if (activePage === "training" && activeProjectName) return activeProjectName;
     if (activePage === "training" && activeTrainingRunId) return "run details";
     if (activePage === "training" && loading) return "loading...";
     if (activePage === "evals" && loadingEvals) return "loading...";
@@ -848,6 +890,21 @@
     activeGroups = new Set();
   }
 
+  function toggleProject(project) {
+    const next = new Set(activeProjects);
+    if (next.has(project)) next.delete(project);
+    else next.add(project);
+    activeProjects = next;
+  }
+
+  function selectAllProjects() {
+    activeProjects = new Set(projects);
+  }
+
+  function clearProjects() {
+    activeProjects = new Set();
+  }
+
   function addTagValue(key, value) {
     const values = Object.hasOwn(activeTags, key) ? activeTags[key] : [];
     if (!value || values.includes(value)) return;
@@ -884,6 +941,7 @@
     if (page !== activePage) mainEl?.scrollTo(0, 0);
     activePage = page;
     activeTrainingRunId = null;
+    activeProjectName = null;
     drawerRunId = null;
     if (typeof window === "undefined") return;
     const targetPath =
@@ -923,6 +981,10 @@
     groupCounts,
     activeGroups,
     allGroupsActive: activeGroups.size === groups.length,
+    projects,
+    projectCounts,
+    activeProjects,
+    allProjectsActive: activeProjects.size === projects.length,
     tagCounts,
     activeTags,
     trainingTypes,
@@ -938,6 +1000,9 @@
     onToggleGroup: toggleGroup,
     onSelectAllGroups: selectAllGroups,
     onClearGroups: clearGroups,
+    onToggleProject: toggleProject,
+    onSelectAllProjects: selectAllProjects,
+    onClearProjects: clearProjects,
     onAddTagValue: addTagValue,
     onRemoveTagValue: removeTagValue,
     onClearTags: clearTags,
@@ -953,6 +1018,7 @@
 
   function backToTrainingList() {
     activeTrainingRunId = null;
+    activeProjectName = null;
     drawerRunId = null;
     if (typeof window === "undefined") return;
     if (window.location.pathname !== pagePaths.training) {
@@ -960,10 +1026,24 @@
     }
   }
 
+  // Opening a project shows its workspace page (a real route, like a run).
+  function openProject(name) {
+    activePage = "training";
+    drawerRunId = null;
+    activeTrainingRunId = null;
+    activeProjectName = name;
+    if (typeof window === "undefined") return;
+    const target = `${PROJECT_PATH_PREFIX}${encodeURIComponent(name)}`;
+    if (window.location.pathname !== target) {
+      window.history.pushState({}, "", target);
+    }
+  }
+
   // Opening a run shows the full detail page (a real route, not a drawer).
   function openTrainingRunDetail(runId) {
     activePage = "training";
     drawerRunId = null;
+    activeProjectName = null;
     activeTrainingRunId = runId;
     if (typeof window === "undefined") return;
     const target = `${pagePaths.training}/${encodeURIComponent(runId)}`;
@@ -1032,7 +1112,13 @@
         onRefresh={() => load()}
       />
 
-    {#if activePage === "training" && activeTrainingRunId}
+    {#if activePage === "training" && activeProjectName}
+      <ProjectPage
+        project={activeProjectName}
+        onOpenDetail={openTrainingRunDetail}
+        onBack={backToTrainingList}
+      />
+    {:else if activePage === "training" && activeTrainingRunId}
       <TrainingRunDetailPage
         runId={activeTrainingRunId}
         initialRun={activeTrainingRun}
@@ -1063,6 +1149,9 @@
         {groups}
         {groupCounts}
         {activeGroups}
+        {projects}
+        {projectCounts}
+        {activeProjects}
         {tagCounts}
         {activeTags}
         {trainingTypes}
@@ -1090,6 +1179,9 @@
         onToggleGroup={toggleGroup}
         onSelectAllGroups={selectAllGroups}
         onClearGroups={clearGroups}
+        onToggleProject={toggleProject}
+        onSelectAllProjects={selectAllProjects}
+        onClearProjects={clearProjects}
         onAddTagValue={addTagValue}
         onRemoveTagValue={removeTagValue}
         onClearTags={clearTags}
@@ -1100,6 +1192,7 @@
         onToggleRunSelected={toggleRunSelected}
         onClearRunSelection={() => (selectedRunIds = new Set())}
         onCompareMetrics={openMetricsCompare}
+        onOpenProject={openProject}
       />
     {:else if activePage === "metrics"}
       <MetricsPage
