@@ -207,7 +207,9 @@ def _peak_gib(
         else layer * arch.num_layers
     ) / GIB
     # bf16 logits + fp32 copy saved by the fused cross-entropy + bf16 logits grad.
-    logits = tokens * arch.vocab_size / tp * 8 / GIB
+    # Miles' fused log-prob backend keeps only the logits.
+    logit_bytes = 2 if get("log_probs_backend") == "fused" else 8
+    logits = tokens * arch.vocab_size / tp * logit_bytes / GIB
 
     colocate = get("colocate")
     no_rollout = get("no_offload_rollout")

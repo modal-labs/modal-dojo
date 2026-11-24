@@ -130,6 +130,15 @@ def test_logits_backward_counted() -> None:
     assert peak > 79.2
 
 
+def test_fused_log_probs_backend_keeps_only_logits() -> None:
+    torch_peak, _ = _peak_gib(_QWEN3_5_4B, _qwen3_5_knobs(), 79.2)
+    fused_peak, _ = _peak_gib(
+        _QWEN3_5_4B, _qwen3_5_knobs(log_probs_backend="fused"), 79.2
+    )
+    saved = 32768 * _QWEN3_5_4B.vocab_size * 6 / 2**30
+    assert fused_peak == pytest.approx(torch_peak - saved)
+
+
 def test_lora_recipe_estimated() -> None:
     full, _ = _peak_gib(_QWEN3_5_4B, _qwen3_5_knobs(), 79.2)
     lora, raised = _peak_gib(_QWEN3_5_4B, _qwen3_5_knobs(lora_rank=16), 79.2)
