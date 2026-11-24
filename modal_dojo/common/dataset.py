@@ -314,16 +314,30 @@ class HarborTasks(DatasetConfig):
 
     Attributes:
         agent: Agent that solves each task.
-        path: Local directory whose subdirectories are Harbor tasks.
+        path: Directory whose subdirectories are Harbor tasks. Without
+            ``modal_volume`` it is a local directory, shipped with the image. With
+            ``modal_volume`` it is a directory inside that Modal Volume.
         task_glob: Glob, relative to ``path``, selecting task directories.
+        modal_volume: Name of a Modal Volume that already holds the tasks. The launcher
+            mounts it on the training containers instead of shipping local files.
     """
 
     _type: DatasetType = DatasetType.HARBOR
 
-    def __init__(self, *, agent: HarborAgent, path: str, task_glob: str = "*") -> None:
+    def __init__(
+        self,
+        *,
+        agent: HarborAgent,
+        path: str = "",
+        task_glob: str = "*",
+        modal_volume: str | None = None,
+    ) -> None:
+        if not path and modal_volume is None:
+            raise DojoConfigError("HarborTasks needs a local path or a modal_volume")
         self.agent = agent
         self.path = path
         self.task_glob = task_glob
+        self.modal_volume = modal_volume
 
     def input_key(self) -> str:
         return "messages"
@@ -345,9 +359,9 @@ class HarborTasks(DatasetConfig):
             raise FileNotFoundError(
                 f"Harbor task {task_dir.name} has no instruction.md: {instruction_file}"
             )
-        instruction = instruction_file.read_text(encoding="utf-8").strip()
         return {
-            self.input_key(): [{"role": "user", "content": instruction}],
+            # miles requires a prompt column but Harbor reads instruction.md itself
+            self.input_key(): [{"role": "user", "content": ""}],
             "metadata": {
                 "harbor_task_path": task_dir.as_posix(),
                 "harbor_agent": self.agent.name,

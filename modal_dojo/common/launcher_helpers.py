@@ -318,6 +318,7 @@ def register_recipe_functions(
     download_timeout: int,
     prepare_dataset: Callable[[], None],
     dataset_timeout: int,
+    harbor_volumes: dict[str, Volume] | None = None,
 ) -> None:
     from modal_dojo.common import hf_secrets, proxy_auth_secrets
     from modal_dojo.common.status_reporter import flush as flush_status
@@ -355,7 +356,8 @@ def register_recipe_functions(
 
     @app.function(
         image=image,
-        volumes={str(DATA_PATH): data_volume},
+        # harbor_volumes hold inputs that rows() reads, such as Harbor tasks.
+        volumes={str(DATA_PATH): data_volume, **(harbor_volumes or {})},
         timeout=dataset_timeout,
         secrets=hf_secrets(),
         serialized=True,

@@ -5,58 +5,39 @@ import shutil
 import subprocess
 from pathlib import Path
 
-DATASET = "code-contests@1.0"
-TRAIN_RATINGS = (1600, 2000)  # above 2000 the model rarely solves anything
-EVAL_RATINGS = (1600, 2400)
-N_EVAL = 128
+import modal
+
+TASKS_VOLUME = "coding-agent-tasks"
+volume = modal.Volume.from_name(TASKS_VOLUME, create_if_missing=True)
+app = modal.App(TASKS_VOLUME)
+image = (
+    modal.Image.debian_slim(python_version="3.12")
+    .apt_install("git")
+    .uv_pip_install("harbor==0.25.0")
+)
 
 
-def rating(task: Path) -> int:
-    match = re.search(
-        r"^- \*\*Rating\*\*: (\d+)", (task / "instruction.md").read_text(), re.M
-    )
-    return int(match.group(1)) if match else 0
-
-
-def has_hidden_tests(task: Path) -> bool:
-    """False if the only tests are the examples printed in the statement."""
-    tests = json.loads((task / "tests" / "test_data.json").read_text())
+def in_range(task: Path, low: int, high: int) -> bool:
     statement = (task / "instruction.md").read_text()
-    return any(i.strip() and i.strip() not in statement for i in tests["inputs"])
+    rating = re.search(r"^- \*\*Rating\*\*: (\d+)", statement, re.M)
+    inputs = json.loads((task / "tests" / "test_data.json").read_text())["inputs"]
+    hidden_tests = any(i.strip() and i.strip() not in statement for i in inputs)
+    return bool(rating) and low <= int(rating.group(1)) <= high and hidden_tests
 
 
-def in_range(task: Path, ratings: tuple[int, int]) -> bool:
-    return ratings[0] <= rating(task) <= ratings[1] and has_hidden_tests(task)
+@app.function(image=image, volumes={"/tasks": volume}, timeout=60 * 60)
+def write_tasks():
+    if Path("/tasks/code-contests").exists():
+        return
+    subprocess.run(["harbor", "download", "code-contests@1.0", "-o", "/tmp"], check=True)
+    tasks = sorted(Path("/tmp/code-contests").iterdir())
+    eval_tasks = random.Random(0).sample([t for t in tasks if in_range(t, 1600, 2400)], 128)
+    train_tasks = [t for t in tasks if t not in eval_tasks and in_range(t, 1600, 2000)]
 
-
-def write_tasks(root: Path, cache: Path = Path.home() / ".cache" / "modal-dojo" / "harbor"):
-    src = cache / "code-contests"
-    if not src.exists():
-        subprocess.run(
-            [
-                "uvx",
-                "--from",
-                "harbor==0.25.0",
-                "harbor",
-                "download",
-                DATASET,
-                "-o",
-                str(cache),
-            ],
-            check=True,
-        )
-
-    tasks = sorted(src.iterdir())
-    eval_tasks = random.Random(0).sample(
-        [t for t in tasks if in_range(t, EVAL_RATINGS)], N_EVAL
-    )
-    train_tasks = [
-        t for t in tasks if t not in eval_tasks and in_range(t, TRAIN_RATINGS)
-    ]
-
-    shutil.rmtree(root, ignore_errors=True)
+    shutil.rmtree("/tasks/tmp", ignore_errors=True)
     for prefix, split in (("train", train_tasks), ("eval", eval_tasks)):
         for task in split:
-            dst = root / f"{prefix}-{task.name}"
+            dst = f"/tasks/tmp/{prefix}-{task.name}"
             shutil.copytree(task, dst, ignore=shutil.ignore_patterns("solution"))
-    print(f"{root}: {len(train_tasks)} train, {len(eval_tasks)} eval tasks")
+    Path("/tasks/tmp").rename("/tasks/code-contests")
+    volume.commit()

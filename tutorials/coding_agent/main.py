@@ -6,8 +6,6 @@
 
 # Start by importing the necessary packages.
 
-from pathlib import Path
-
 from modal_dojo import (
     HarborAgent,
     HarborTasks,
@@ -16,11 +14,7 @@ from modal_dojo import (
     TrainConfig,
 )
 
-from tutorials.coding_agent.tasks import write_tasks
-
-# Define the directory we want to download our tasks to.
-
-TASKS = Path(__file__).parent / "tasks"
+from tutorials.coding_agent import tasks
 
 # We want to penalize completions to stay below our `max_seq_len` (the rollout's max length). We noticed a lot of truncations (rollout hitting context limits) and length penalty helps reduce that.
 
@@ -44,10 +38,12 @@ def length_penalty(args, samples):
 
 agent = HarborAgent("terminus-2", enable_summarize=False, record_terminal_session=False)
 
+# Then, define the TrainConfig and drop the train and eval dataset in your config
+
 config = TrainConfig(
     model=Qwen3_5_4B(),
-    dataset=HarborTasks(agent=agent, path=str(TASKS), task_glob="train-*"),
-    eval_dataset=HarborTasks(agent=agent, path=str(TASKS), task_glob="eval-*"),
+    dataset=HarborTasks(agent=agent, modal_volume=tasks.TASKS_VOLUME, path="code-contests", task_glob="train-*"),
+    eval_dataset=HarborTasks(agent=agent, modal_volume=tasks.TASKS_VOLUME, path="code-contests", task_glob="eval-*"),
     recipe=Qwen3_5_4B_Miles_Recipe(
         name="pi-harbor-code-contests",
         # a Miles build with the session server
@@ -84,7 +80,10 @@ config = TrainConfig(
     ),
 )
 
+# Let it rip!
+
 if __name__ == "__main__":
-    # tasks need to be available locally, our write_tasks function does the required pre-processing and makes them available
-    write_tasks(TASKS)
+    # download and filter the tasks into a Modal Volume and training run mounts it
+    with tasks.app.run():
+        tasks.write_tasks.remote()
     config.launch()

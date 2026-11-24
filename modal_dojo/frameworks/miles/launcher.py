@@ -10,7 +10,7 @@ import tempfile
 import time
 from pathlib import Path, PurePosixPath
 
-from modal import App, Image, __version__ as MODAL_VERSION
+from modal import App, Image, Volume, __version__ as MODAL_VERSION
 
 from modal_dojo.common import (
     hf_secrets,
@@ -266,21 +266,23 @@ def _build_miles_base_image(
 
 def _ship_harbor_tasks(
     image: Image, *datasets: DatasetConfig | None
-) -> tuple[Image, list[DatasetConfig | None]]:
-    remote_roots: dict[Path, str] = {}
+) -> tuple[Image, dict[str, Volume], list[DatasetConfig | None]]:
+    volumes: dict[str, Volume] = {}
     shipped = []
     for ds in datasets:
         if isinstance(ds, HarborTasks):
-            local = ds._resolve_task_root()
-            if local not in remote_roots:
-                remote_roots[local] = f"{HARBOR_TASKS_PATH}/{len(remote_roots)}"
-                image = image.add_local_dir(
-                    local, remote_path=remote_roots[local], copy=True
-                )
             ds = copy.copy(ds)
-            ds.path = remote_roots[local]
+            if ds.modal_volume:
+                root = f"{HARBOR_TASKS_PATH}/volumes/{ds.modal_volume}"
+                volumes[root] = Volume.from_name(ds.modal_volume)
+                ds.path = str(PurePosixPath(root, ds.path))
+            else:
+                local = ds._resolve_task_root()
+                ds.path = f"{HARBOR_TASKS_PATH}/local{local}"
+                if all(getattr(s, "path", None) != ds.path for s in shipped):
+                    image = image.add_local_dir(local, remote_path=ds.path, copy=True)
         shipped.append(ds)
-    return image, shipped
+    return image, volumes, shipped
 
 
 def _remap_kernel_cache_dirs(
@@ -394,10 +396,10 @@ def build_miles_app(
 
     uses_harbor = isinstance(dataset, HarborTasks)
     image = _build_miles_base_image(miles, caller_script, uses_harbor=uses_harbor)
+    image, harbor_volumes, (dataset, eval_dataset) = _ship_harbor_tasks(
+        image, dataset, eval_dataset
+    )
     if uses_harbor:
-        image, (dataset, eval_dataset) = _ship_harbor_tasks(
-            image, dataset, eval_dataset
-        )
         miles.extra_config = {**harbor.AGENT_CONFIG, **(miles.extra_config or {})}
     # Encoded patch scripts belong in the image, not every worker's closure.
     # Keeping them here can exceed Modal's 64 KiB serialized-function limit.
@@ -409,6 +411,7 @@ def build_miles_app(
             volume_prefix=volume_prefix,
         )
     )
+    all_volumes.update(harbor_volumes)
     hf_cache_volume = all_volumes[str(HF_CACHE_PATH)]
     data_volume = all_volumes[str(DATA_PATH)]
     checkpoints_volume = all_volumes[checkpoints_mount_path]
@@ -465,6 +468,7 @@ def build_miles_app(
             dataset, eval_dataset, dataset_path, eval_dataset_path
         ),
         dataset_timeout=dataset_timeout,
+        harbor_volumes=harbor_volumes,
     )
 
     convert_nnodes, convert_nproc, _ = get_checkpoint_conversion_policy(
