@@ -128,17 +128,29 @@ jobs:
               repo: context.repo.repo,
               issue_number: prNumber,
             });
-            if (comments.some((comment) => comment.body.includes(marker))) {
-              console.log("Preview comment already exists; skipping");
+            const baseUrl = process.env.PREVIEW_BASE_URL.replace(/\/+$/, "");
+            const body = `${marker}\nDocumentation preview: ${baseUrl}/${prNumber}/docs`;
+            const existing = comments.find((comment) => comment.body.includes(marker));
+            if (existing?.body === body) {
+              console.log("Preview comment is up to date; skipping");
               return;
             }
-
-            const baseUrl = process.env.PREVIEW_BASE_URL.replace(/\/+$/, "");
+            // Rewrite a comment left by an older PREVIEW_BASE_URL (e.g. after
+            // the redirector moved Modal environments) so its link works again.
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+              return;
+            }
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: prNumber,
-              body: `${marker}\nDocumentation preview: ${baseUrl}/${prNumber}/docs`,
+              body,
             });
 
   deploy:
