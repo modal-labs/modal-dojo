@@ -1,4 +1,4 @@
-"""Full-parameter Inkling 2 Mini with response-heavy 256k coding trajectories."""
+"""Full-parameter Inkling 2 Mini with response-heavy 64k coding trajectories."""
 
 from dataclasses import field
 from pathlib import Path
@@ -30,13 +30,14 @@ def _image_commands() -> list[str]:
 
 
 @dataclass(config=ConfigDict(extra="forbid", arbitrary_types_allowed=True))
-class Inkling_2_Mini_256k_Recipe(MilesRecipe):
-    """Full-parameter GRPO, 262,144-token context, 1 node × 8 B300 GPUs.
+class Inkling_2_Mini_64k_Recipe(MilesRecipe):
+    """Full-parameter GRPO, 65,536-token context, 1 node × 8 B300 GPUs.
 
-    Reserves 16k initial prompt tokens and 240k response tokens. Agentic coding
+    Reserves 16k initial prompt tokens and 48k response tokens. Agentic coding
     rollouts supply exact generated tokens, logprobs, observation loss masks and
     executable-test rewards. Defaults to one proof step without a reward scorer.
-    The throughput preset and full-length capacity require live validation.
+    A nonzero SWE update used 54k–62k trajectories with a larger configured
+    window; the exact 64k limits and sustained learning require live validation.
     """
 
     model_config_class: ClassVar[type[ModelConfig]] = Inkling_2_Mini
@@ -82,14 +83,14 @@ class Inkling_2_Mini_256k_Recipe(MilesRecipe):
     global_batch_size: int = 8
     use_dynamic_batch_size: bool = False
     micro_batch_size: MicroBatchSize = 1
-    max_tokens_per_gpu: MicroBatchSize = 262144
+    max_tokens_per_gpu: MicroBatchSize = 65536
     balance_data: bool = True
     # The native loop checkpoints every layer visit itself. Wrapping its blocks
     # a second time with TorchTitan's generic rematerializer is unnecessary.
     gradient_checkpointing: bool = False
     update_weight_buffer_size: int | None = 512 * 1024 * 1024
     # Reclaim idle blocks before compiled kernels need CUDA driver allocations.
-    # Expandable segments cannot be shared by the CUDA IPC weight updater on Modal.
+    # Expandable segments require CUDA IPC permissions unavailable in some environments.
     train_env_vars: dict | str | None = field(
         default_factory=lambda: {
             "PYTORCH_ALLOC_CONF": "garbage_collection_threshold:0.8"
@@ -101,15 +102,15 @@ class Inkling_2_Mini_256k_Recipe(MilesRecipe):
     sglang_page_size: int = 128
     sglang_mem_fraction_static: float = 0.7
     sglang_disable_radix_cache: bool = True
-    sglang_context_length: int = 262144
+    sglang_context_length: int = 65536
     sglang_max_running_requests: int | None = 1
     sglang_server_concurrency: int | None = 8
     sglang_chunked_prefill_size: int = 4096
-    max_seq_len: int = 262144
+    max_seq_len: int = 65536
     rollout_max_prompt_len: int = 16384
-    rollout_max_response_len: int = 245760
-    eval_max_response_len: int = 245760
-    seq_length: int = 262144
+    rollout_max_response_len: int = 49152
+    eval_max_response_len: int = 49152
+    seq_length: int = 65536
     capture_trace: bool = True
     tito_model: str = "inkling"
     use_session_server: str = "v1"
@@ -124,7 +125,7 @@ class Inkling_2_Mini_256k_Recipe(MilesRecipe):
     )
 
     @model_validator(mode="after")
-    def _validate_titan_backend(self) -> "Inkling_2_Mini_256k_Recipe":
+    def _validate_titan_backend(self) -> "Inkling_2_Mini_64k_Recipe":
         overrides = self._escape_hatch_values()
 
         def value(name, default=None):
@@ -158,7 +159,7 @@ class Inkling_2_Mini_256k_Recipe(MilesRecipe):
                 )
         if value("use_dynamic_batch_size") or value("micro_batch_size") != 1:
             raise ValueError(
-                "Inkling 2 Mini 256k requires one trajectory per microbatch"
+                "Inkling 2 Mini 64k requires one trajectory per microbatch"
             )
         required = _image_commands()
         if (self.image_run_commands or [])[: len(required)] != required:
