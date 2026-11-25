@@ -21,6 +21,9 @@ from modal_dojo.train_recipes.miles_recipe.inkling_2_mini import (
 from modal_dojo.train_recipes.miles_recipe.inkling_2_mini_128k import (
     Inkling_2_Mini_128k_Recipe,
 )
+from modal_dojo.train_recipes.miles_recipe.inkling_2_mini_256k import (
+    Inkling_2_Mini_256k_Recipe,
+)
 from modal_dojo.train_recipes.miles_recipe.inkling_2_small import (
     Inkling_2_Small_LoRA_256k_Recipe,
 )
@@ -54,6 +57,7 @@ __all__ = [
     "GLM_5_3_Flash_LoRA_256k_Recipe",
     "Inkling_2_Mini_64k_Recipe",
     "Inkling_2_Mini_128k_Recipe",
+    "Inkling_2_Mini_256k_Recipe",
     "Inkling_2_Small_LoRA_256k_Recipe",
     "Inkling_Small_Recipe",
     "Inkling_Small_LoRA_Recipe",

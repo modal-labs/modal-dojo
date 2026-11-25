@@ -118,6 +118,10 @@ _EXPORTS = {
         "modal_dojo.train_recipes.miles_recipe",
         "Inkling_2_Mini_128k_Recipe",
     ),
+    "Inkling_2_Mini_256k_Recipe": (
+        "modal_dojo.train_recipes.miles_recipe",
+        "Inkling_2_Mini_256k_Recipe",
+    ),
     "Inkling_2_Small": ("modal_dojo.common.models", "Inkling_2_Small"),
     "Inkling_2_Small_LoRA_256k_Recipe": (
         "modal_dojo.train_recipes.miles_recipe",
@@ -301,6 +305,7 @@ __all__ = [
     "Inkling_2_Mini",
     "Inkling_2_Mini_64k_Recipe",
     "Inkling_2_Mini_128k_Recipe",
+    "Inkling_2_Mini_256k_Recipe",
     "Inkling_2_Small",
     "Inkling_2_Small_LoRA_256k_Recipe",
     "Inkling_Small",
