@@ -88,10 +88,12 @@ class Inkling_2_Mini_256k_Recipe(MilesRecipe):
     # a second time with TorchTitan's generic rematerializer is unnecessary.
     gradient_checkpointing: bool = False
     update_weight_buffer_size: int | None = 512 * 1024 * 1024
-    # Preserve large blocks for variable-length expert buffers. Expandable
-    # segments cannot be shared by the colocated CUDA IPC weight updater on Modal.
+    # Reclaim idle blocks before compiled kernels need CUDA driver allocations.
+    # Expandable segments cannot be shared by the CUDA IPC weight updater on Modal.
     train_env_vars: dict | str | None = field(
-        default_factory=lambda: {"PYTORCH_ALLOC_CONF": "max_split_size_mb:512"}
+        default_factory=lambda: {
+            "PYTORCH_ALLOC_CONF": "garbage_collection_threshold:0.8"
+        }
     )
 
     sglang_attention_backend: str | None = "fa4"
