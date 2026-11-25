@@ -36,8 +36,16 @@ def report_train(function):
 
     @wraps(function)
     def wrapped(self, rollout_id, *args, **kwargs):
-        with recording_lane_on_reporting_rank(rollout_id):
-            return function(self, rollout_id, *args, **kwargs)
+        try:
+            with recording_lane_on_reporting_rank(rollout_id):
+                return function(self, rollout_id, *args, **kwargs)
+        finally:
+            if rollout_id + 1 == self.args.num_rollout:
+                # Miles kills Ray workers without running their atexit hooks.
+                # Deliver the final step's buffered metrics before returning.
+                from modal_dojo.common.reporting import drain
+
+                drain()
 
     return wrapped
 
