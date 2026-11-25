@@ -437,6 +437,8 @@ def build_miles_app(
         download_phase=MilesStatus.DOWNLOAD_MODEL.value,
         download=download_inputs,
         download_timeout=download_timeout,
+        download_cpu=miles.download_cpu,
+        download_memory=miles.download_memory,
         prepare_dataset=lambda: write_datasets(
             dataset, eval_dataset, dataset_path, eval_dataset_path
         ),
@@ -471,6 +473,11 @@ def build_miles_app(
             framework_status_url,
             framework_status_token,
         )
+
+        if getattr(miles, "train_backend", "megatron") == "torchtitan":
+            print("TorchTitan loads HF weights directly; no torch_dist conversion.")
+            flush_status_reporter(timeout_seconds=2.0)
+            return None
 
         if getattr(miles, "megatron_to_hf_mode", None) == "bridge":
             print("Bridge mode - no conversion needed.")

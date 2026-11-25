@@ -87,6 +87,8 @@ _MILES_SKIP = {
     "conversion_expert_tensor_parallel_size",
     "convert_ephemeral_disk_mb",
     "download_timeout_seconds",
+    "download_cpu",
+    "download_memory",
     "convert_timeout_seconds",
     "capture_trace",
     "trace_sample_limit",
@@ -452,6 +454,10 @@ class MilesRecipe(BaseTrainRecipe):
             Modal Function memory request/limit in MiB.
         cpu:
             Modal Function CPU request/limit in cores per container.
+        download_cpu:
+            CPU cores for model download and CPU post-processing.
+        download_memory:
+            Memory in MiB for model download and CPU post-processing.
         cloud:
             Modal cloud provider to pin the cluster to.
         region:
@@ -703,6 +709,8 @@ class MilesRecipe(BaseTrainRecipe):
     miles_model_name: str = ""
     memory: int | tuple[int, int] | None = None
     cpu: float | tuple[float, float] | None = None
+    download_cpu: float | None = None
+    download_memory: int | None = None
     cloud: str | None = None
     region: str | None = None
     patch_files: list[str] = field(default_factory=list)
@@ -983,6 +991,9 @@ class MilesRecipe(BaseTrainRecipe):
             GLM_5_3_Flash_LoRA_Recipe,
         )
         from modal_dojo.common.models.inkling_small import Inkling_Small_LoRA
+        from modal_dojo.train_recipes.miles_recipe.inkling_2_mini import (
+            Inkling_2_Mini_64k_Recipe,
+        )
         from modal_dojo.train_recipes.miles_recipe.inkling_2_small import (
             Inkling_2_Small_LoRA_256k_Recipe,
         )
@@ -1035,6 +1046,8 @@ class MilesRecipe(BaseTrainRecipe):
             return Gemma4_26B_A4B_Recipe()
         if model_config.model_name == "moonshotai/Kimi-K3":
             return Kimi_K3_LoRA_Recipe()
+        if model_config.model_name == "thinkingmachines/Inkling-2-Mini":
+            return Inkling_2_Mini_64k_Recipe()
         if model_config.model_name == "thinkingmachines/Inkling-2-Small":
             return Inkling_2_Small_LoRA_256k_Recipe()
         if isinstance(model_config, Inkling_Small_LoRA):
