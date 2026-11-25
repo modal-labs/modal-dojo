@@ -85,3 +85,16 @@ class Qwen3_8_27B_Miles_LoRA_Recipe(MilesRecipe):
     sglang_tool_call_parser: str | None = "qwen3_coder"
     sglang_reasoning_parser: str | None = "qwen3"
     sglang_lora_backend: str | None = "triton"
+
+
+@dataclass(config=ConfigDict(extra="forbid", arbitrary_types_allowed=True))
+class Qwen3_8_27B_Miles_LoRA_256k_Recipe(Qwen3_8_27B_Miles_LoRA_Recipe):
+    """The same recipe with a 262k context, trained at TP4 x DP2."""
+
+    tensor_model_parallel_size: int = 4
+    rollout_max_context_len: int = 262144
+    rollout_max_prompt_len: int = 229376
+    seq_length: int = 262144
+    max_position_embeddings: int = 262144
+    max_tokens_per_gpu: MicroBatchSize = 262144
+    sglang_context_length: int = 262144
