@@ -318,6 +318,8 @@ def register_recipe_functions(
     download_timeout: int,
     prepare_dataset: Callable[[], None],
     dataset_timeout: int,
+    download_cpu: float | None = None,
+    download_memory: int | None = None,
 ) -> None:
     from modal_dojo.common import hf_secrets, proxy_auth_secrets
     from modal_dojo.common.status_reporter import flush as flush_status
@@ -331,6 +333,8 @@ def register_recipe_functions(
             checkpoints_mount_path: checkpoints_volume,
         },
         timeout=download_timeout,
+        cpu=download_cpu,
+        memory=download_memory,
         secrets=[*hf_secrets(), *proxy_auth_secrets()],
         serialized=True,
         name="download",

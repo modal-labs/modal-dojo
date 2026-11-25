@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from modal_dojo.common.dataset import DatasetConfig, HuggingFaceDataset
 from modal_dojo.common.errors import DojoConfigError
-from modal_dojo.common.models import Inkling_2_Small, ModelConfig
+from modal_dojo.common.models import Inkling_2_Mini, Inkling_2_Small, ModelConfig
 from modal_dojo.train_recipes.miles_recipe import MilesRecipe
 
 
@@ -50,7 +50,9 @@ def build_miles_validation(
     recipe.skip_eval_before_train = True
     # Inkling's native math scorer understands its response format.
     recipe.rm_type = (
-        "math" if isinstance(model_config, Inkling_2_Small) else "deepscaler"
+        "math"
+        if isinstance(model_config, (Inkling_2_Mini, Inkling_2_Small))
+        else "deepscaler"
     )
     prompts_per_step = max(
         recipe.rollout_batch_size, recipe.over_sampling_batch_size or 0
