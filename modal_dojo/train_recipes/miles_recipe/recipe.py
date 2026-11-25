@@ -1002,6 +1002,9 @@ class MilesRecipe(BaseTrainRecipe):
         from modal_dojo.train_recipes.miles_recipe.qwen3_5_4b import (
             Qwen3_5_4B_Miles_Recipe,
         )
+        from modal_dojo.train_recipes.miles_recipe.qwen3_8_27b import (
+            Qwen3_8_27B_Miles_LoRA_Recipe,
+        )
 
         from modal_dojo.common.models.beam import Beam_1_0_501B_A23B_LoRA
         from modal_dojo.train_recipes.miles_recipe.beam_256k import (
@@ -1016,6 +1019,8 @@ class MilesRecipe(BaseTrainRecipe):
             return Muse_Spark_Open_64k_Recipe()
         if model_config.model_name == "Qwen/Qwen3.5-4B":
             return Qwen3_5_4B_Miles_Recipe()
+        if model_config.model_name == "Qwen/Qwen3.8-27B":
+            return Qwen3_8_27B_Miles_LoRA_Recipe()
         if model_config.model_name == "moonshotai/Moonlight-16B-A3B-Instruct":
             return Moonlight_16B_A3B_Recipe()
         if model_config.model_name == "deepseek-ai/DeepSeek-V4.1-Flash-1017":
