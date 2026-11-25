@@ -28,7 +28,8 @@ from modal import App, Image, Secret
 from modal_dojo.common import hf_secrets, proxy_auth_secrets
 
 
-from modal_dojo.common.dataset import DatasetConfig, _SftDataset
+from modal_dojo.common.dataset import DatasetConfig, HarborTasks, _SftDataset
+from modal_dojo.common.errors import DojoConfigError
 from modal_dojo.common.framework import (
     mount_tools_dir,
 )
@@ -370,6 +371,8 @@ def build_slime_app(
     app_name = name or f"slime-{type(slime).__name__.lstrip('_').lower()}"
     volume_prefix = f"slime-{type(slime).__name__.lstrip('_').lower()}"
 
+    if isinstance(dataset, HarborTasks) or isinstance(eval_dataset, HarborTasks):
+        raise DojoConfigError("HarborTasks is only supported with Miles recipes")
     SlimeRecipe._validate_custom_model_architecture(model)
     SlimeRecipe._validate_datasets(dataset, eval_dataset, loss_type=slime.loss_type)
     if slime.loss_type == "sft_loss":
