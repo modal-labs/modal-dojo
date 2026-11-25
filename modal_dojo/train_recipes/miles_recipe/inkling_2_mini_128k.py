@@ -1,5 +1,8 @@
 """Full-parameter Inkling 2 Mini with a 128k context window."""
 
+from dataclasses import field
+from typing import Any
+
 from pydantic import ConfigDict
 from pydantic.dataclasses import dataclass
 
@@ -18,6 +21,11 @@ class Inkling_2_Mini_128k_Recipe(Inkling_2_Mini_64k_Recipe):
     episode per replica bounds evaluation queues as well as training rollouts.
     """
 
+    # A full model/optimizer checkpoint is about 292 GiB. Leave headroom for
+    # checkpoint staging, a loaded checkpoint, and runtime compilation caches.
+    train_function_kwargs: dict[str, Any] = field(
+        default_factory=lambda: {"ephemeral_disk": 1024 * 1024}
+    )
     rollout_batch_size: int = 2
     n_samples_per_prompt: int = 4
     sglang_server_concurrency: int | None = 1
