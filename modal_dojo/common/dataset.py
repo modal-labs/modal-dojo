@@ -346,7 +346,7 @@ class HarborTasks(DatasetConfig):
         return None
 
     def _resolve_task_root(self) -> Path:
-        task_root = Path(self.path).resolve()
+        task_root = Path(self.path).absolute()
         if not task_root.exists():
             raise FileNotFoundError(f"task root does not exist: {task_root}")
         if not task_root.is_dir():
