@@ -15,6 +15,7 @@ from modal.exception import NotFoundError
 from modal_dojo.common.errors import DojoConfigError
 from modal_dojo.common.models import ModelConfig
 from modal_dojo.common.run import TrainingRun
+from modal_dojo.common.volumes import dojo_volume
 from modal_dojo.common.torch_dist_checkpoint import (
     TORCH_DIST_TRACKER_NAME,
     is_complete_torch_dist_checkpoint,
@@ -242,7 +243,7 @@ def convert_megatron_checkpoint_to_hf(
             "Cannot convert a megatron checkpoint without model_name or model_path."
         )
 
-    hf_cache_volume = Volume.from_name(_HF_CACHE_VOLUME_NAME, create_if_missing=True)
+    hf_cache_volume = dojo_volume(_HF_CACHE_VOLUME_NAME)
     checkpoints_volume = volume
     from modal_dojo.common import hf_secrets
     from modal_dojo.frameworks.slime.launcher import _build_slime_base_image
@@ -302,7 +303,7 @@ def convert_native_lora_checkpoint_to_peft(
             "Cannot convert a LoRA adapter without model_name or model_path."
         )
 
-    hf_cache_volume = Volume.from_name(_HF_CACHE_VOLUME_NAME, create_if_missing=True)
+    hf_cache_volume = dojo_volume(_HF_CACHE_VOLUME_NAME)
     checkpoints_volume = Volume.from_name(
         checkpoints_volume_name, create_if_missing=False
     )

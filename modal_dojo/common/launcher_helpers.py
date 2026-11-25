@@ -43,6 +43,7 @@ from modal_dojo.common.run import (
     set_checkpoint_location,
 )
 from modal_dojo.common.checkpoint import require_within_volume_mount
+from modal_dojo.common.volumes import dojo_volume
 from modal_dojo.common.launcher_utils import (
     drop_materialized_config_key,
     serialize_recipe_params,
@@ -166,9 +167,6 @@ def create_training_volumes(
     data_volume_name: str | None = None,
     mount_metadata: bool = False,
 ) -> tuple[str, str, dict[str, Volume]]:
-    def volume(volume_name: str) -> Volume:
-        return Volume.from_name(volume_name, create_if_missing=True)
-
     name = (
         getattr(checkpoint, "checkpoints_volume_name", None)
         or f"{volume_prefix}-checkpoints"
@@ -177,14 +175,14 @@ def create_training_volumes(
         getattr(checkpoint, "checkpoints_mount_path", None) or str(CHECKPOINTS_PATH)
     ).rstrip("/") or "/"
     volumes = {
-        str(HF_CACHE_PATH): volume("huggingface-cache"),
-        str(DATA_PATH): volume(data_volume_name or f"{volume_prefix}-data"),
-        mount: volume(name),
+        str(HF_CACHE_PATH): dojo_volume("huggingface-cache"),
+        str(DATA_PATH): dojo_volume(data_volume_name or f"{volume_prefix}-data"),
+        mount: dojo_volume(name),
     }
     if mount_metadata:
         from modal_dojo.utils.metadata import METADATA_VOLUME_NAME
 
-        volumes["/metadata"] = volume(METADATA_VOLUME_NAME)
+        volumes["/metadata"] = dojo_volume(METADATA_VOLUME_NAME)
     return name, mount, volumes
 
 
