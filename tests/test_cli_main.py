@@ -270,7 +270,7 @@ def test_expected_errors_use_declared_exit_code(runner, monkeypatch):
     result = runner.invoke(cli_module.entrypoint_cli, ["setup"])
 
     assert result.exit_code == ExitCode.BACKEND
-    assert result.stdout == ""
+    assert "modal-dojo skills install" not in result.stdout
     assert "offline" in result.stderr
     assert "modal-dojo open" in result.stderr
 

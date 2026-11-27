@@ -30,6 +30,10 @@ from enum import Enum
 import webbrowser
 from pathlib import Path
 
+from rich.style import Style
+from rich.text import Text
+
+from modal_dojo.cli.output import print_renderable
 from modal_dojo.common.dashboard import (
     DASHBOARD_APP_NAME,
     DashboardLookupUnknown,
@@ -184,8 +188,17 @@ def setup(
             "Dashboard deployment returned no URL; previous saved URL retained."
         )
     save_dashboard_url(web_url, proxy_auth=require_proxy_auth)
-    print(f"\nDashboard deployed: {web_url}")
-    print(f"Saved dashboard URL to {CONFIG_PATH}")
+    if require_proxy_auth:
+        summary = Text(
+            f"\nDashboard URL (requires Modal proxy authentication): {web_url}"
+        )
+    else:
+        summary = Text.assemble(
+            ("\nView Dojo Dashboard: ", "bold"),
+            (web_url, Style(color="green", underline=True, link=web_url)),
+        )
+    summary.append(f"\n  (Saved to {CONFIG_PATH})", style="bright_black")
+    print_renderable(summary, soft_wrap=True)
     return web_url
 
 
