@@ -7,6 +7,7 @@ from pathlib import Path
 import click
 
 from .commands import _DojoCommand
+from .output import print_renderable
 
 
 @click.command("setup", cls=_DojoCommand)
@@ -61,6 +62,9 @@ def setup_command(
     elif no_proxy_auth:
         selected_auth = ProxyAuthMode.DISABLE
 
+    print_renderable(
+        "[green]Setting up the Dojo dashboard[/green] (to monitor training runs and view logs)."
+    )
     if no_trajectory_viewer:
         setup(proxy_auth=selected_auth, password=password, reset_trajectory_viewer=True)
     elif trajectory_viewer is None:
@@ -71,6 +75,9 @@ def setup_command(
             password=password,
             trajectory_viewer=trajectory_viewer,
         )
+    print_renderable(
+        "\n[green]→[/green] Run `[bold]modal-dojo skills install[/bold]` to install optional agent skills."
+    )
 
 
 @click.command("open", cls=_DojoCommand)

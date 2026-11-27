@@ -30,7 +30,7 @@ from typing import (
 )
 
 import modal
-from modal.exception import Error
+from modal.exception import AlreadyExistsError, Error
 
 
 # Imported at module scope so FastAPI can resolve endpoint annotations such as
@@ -326,22 +326,18 @@ def _compute_next_page(logs: list[LogEntry], limit: int) -> tuple[bool, float | 
 def ensure_creds_secret(interactive: bool = False) -> bool:
     """Make sure the ``_training-gym-modal-creds`` Modal Secret exists.
 
-    Idempotent: returns True if the secret was already present or if we
-    successfully created it from ``~/.modal.toml``. Returns False if we
-    can't find creds and ``interactive`` is False (or the user skipped).
-
-    Called both from ``modal-dojo setup`` and at module-load of this file
-    so that ``modal deploy dashboards/app.py`` works without any prior
-    setup step — as long as the user has a valid ``~/.modal.toml``.
+    Creates or refreshes the Secret with the current credentials. Returns
+    False if none are available (or the user skips the prompt).
     """
     if not _is_local():
         # Inside a Modal container we have no credentials and no need to
         # create anything; the secret was already provisioned at deploy.
         return True
 
+    from modal_dojo.cli.output import print_renderable
     from modal_dojo.common.config import resolve_modal_creds
 
-    token_id, token_secret, source = resolve_modal_creds()
+    token_id, token_secret, _ = resolve_modal_creds()
 
     if not token_id or not token_secret:
         if not interactive:
@@ -361,24 +357,27 @@ def ensure_creds_secret(interactive: bool = False) -> bool:
         except (EOFError, KeyboardInterrupt):
             print("\nSkipping Modal Secret setup.")
             return False
-        source = "user input"
 
     if not token_id or not token_secret:
         return False
 
+    env_values = {"MODAL_TOKEN_ID": token_id, "MODAL_TOKEN_SECRET": token_secret}
     try:
-        env_values = {"MODAL_TOKEN_ID": token_id, "MODAL_TOKEN_SECRET": token_secret}
-        modal.Secret.objects.create(
-            MODAL_CREDS_SECRET_NAME, env_values, allow_existing=True
-        )
-        modal.Secret.from_name(MODAL_CREDS_SECRET_NAME).update(env_values)
-        print(f"Provisioned Modal Secret {MODAL_CREDS_SECRET_NAME!r} (from {source}).")
-        return True
+        try:
+            modal.Secret.objects.create(MODAL_CREDS_SECRET_NAME, env_values)
+            action = "Created"
+        except AlreadyExistsError:
+            modal.Secret.from_name(MODAL_CREDS_SECRET_NAME).update(env_values)
+            action = "Updated"
     except Exception as exc:
         print(
-            f"WARNING: failed to create Modal Secret {MODAL_CREDS_SECRET_NAME!r}: {exc}"
+            f"WARNING: failed to provision Modal Secret {MODAL_CREDS_SECRET_NAME!r}: {exc}"
         )
         return False
+    print_renderable(
+        f"{action} Secret [green]{MODAL_CREDS_SECRET_NAME}[/green] (for dashboard log streaming)"
+    )
+    return True
 
 
 def _function_secrets() -> list[modal.Secret]:
@@ -411,14 +410,6 @@ def set_dashboard_password(password: str) -> str:
     modal.Secret.objects.delete(DASHBOARD_PASSWORD_SECRET_NAME, allow_missing=True)
     modal.Secret.objects.create(DASHBOARD_PASSWORD_SECRET_NAME, env)
     return env.get("DASHBOARD_CLI_TOKEN", "")
-
-
-# Auto-create the creds secret at module-load so `modal deploy
-# dashboards/app.py` works out of the box. Gated to local context so it never
-# fires inside the deployed container. The password secret is intentionally
-# NOT auto-created — no secret means no auth.
-if _is_local():
-    ensure_creds_secret(interactive=False)
 
 
 def _run_compact_sync() -> None:

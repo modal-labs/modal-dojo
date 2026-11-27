@@ -2,13 +2,20 @@
 
 from __future__ import annotations
 
+import runpy
+import sys
+from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import Mock
+from unittest.mock import ANY, Mock
 
 import modal
 import pytest
+from click.testing import CliRunner
+from modal.exception import AlreadyExistsError
 
+import modal_dojo
 from modal_dojo import _dashboard
+from modal_dojo.cli import entrypoint_cli
 from modal_dojo.cli import setup as cli_setup
 from modal_dojo.common import config
 
@@ -179,3 +186,78 @@ def test_password_change_restarts_containers(stub_deploy, changed, strategy):
     cli_setup.setup(interactive=False)
 
     assert stub_deploy.app.deploy.call_args.kwargs["strategy"] == strategy
+
+
+@pytest.fixture
+def log_secret(secret, monkeypatch):
+    monkeypatch.delenv("MODAL_IS_REMOTE", raising=False)
+    monkeypatch.setenv("MODAL_TOKEN_ID", "test-id")
+    monkeypatch.setenv("MODAL_TOKEN_SECRET", "test-secret")
+    monkeypatch.setattr(modal.Secret, "hydrate", Mock())
+    monkeypatch.setattr(modal.Secret, "update", secret.update)
+    return secret
+
+
+@pytest.mark.parametrize(
+    ("auth_flag", "label", "existing_secret"),
+    [
+        ("--no-proxy-auth", "View Dojo Dashboard", False),
+        ("--proxy-auth", "Dashboard URL (requires Modal proxy authentication)", True),
+    ],
+)
+def test_cli_setup_provisions_log_secret_once_and_shows_next_steps(
+    auth_flag, label, existing_secret, log_secret, monkeypatch, tmp_path
+):
+    if existing_secret:
+        log_secret.create.side_effect = AlreadyExistsError("Secret already exists")
+    url = "https://my-workspace--modal-dojo-dashboard-fastapi-app.modal.run"
+    config_path = tmp_path / ("long-directory-" * 5) / ".modal-dojo.toml"
+    config_path.parent.mkdir()
+    monkeypatch.setattr(config, "CONFIG_PATH", config_path)
+    monkeypatch.setenv("COLUMNS", "80")
+    monkeypatch.setattr(config, "LEGACY_CONFIG_PATH", tmp_path / ".training-gym.toml")
+    monkeypatch.setattr(config, "_dashboard_requires_proxy_auth", False)
+    monkeypatch.setattr(config, "_dashboard_trajectory_viewer", None)
+    monkeypatch.setattr(cli_setup, "deployed_dashboard_url", lambda: None)
+    monkeypatch.setattr(cli_setup, "ensure_proxy_auth", lambda **_k: True)
+    monkeypatch.setattr(modal.App, "deploy", Mock())
+    monkeypatch.setattr(modal.Function, "get_web_url", lambda self: url)
+    # Load a fresh dashboard as the real CLI does, then restore the shared module.
+    monkeypatch.delitem(sys.modules, "modal_dojo._dashboard")
+    monkeypatch.delattr(modal_dojo, "_dashboard")
+
+    result = CliRunner().invoke(entrypoint_cli, ["setup", auth_flag])
+
+    assert result.exit_code == 0, result.output
+    name = _dashboard.MODAL_CREDS_SECRET_NAME
+    log_secret.create.assert_called_once_with(name, ANY)
+    assert log_secret.update.call_count == int(existing_secret)
+    assert result.stdout.startswith(
+        "Setting up the Dojo dashboard (to monitor training runs and view logs).\n"
+    )
+    action = "Updated" if existing_secret else "Created"
+    assert (
+        result.stdout.splitlines().count(
+            f"{action} Secret {name} (for dashboard log streaming)"
+        )
+        == 1
+    )
+    assert result.stdout.endswith(
+        f"\n{label}: {url}\n"
+        f"  (Saved to {config_path})\n\n"
+        "→ Run `modal-dojo skills install` to install optional agent skills.\n"
+    )
+    assert config.get_dashboard_url() == url
+
+
+@pytest.mark.parametrize("is_remote", [False, True])
+def test_direct_dashboard_deploy_provisions_log_secret_locally(
+    is_remote, log_secret, monkeypatch
+):
+    if is_remote:
+        monkeypatch.setenv("MODAL_IS_REMOTE", "1")
+    entrypoint = Path(__file__).resolve().parents[1] / "dashboards" / "app.py"
+
+    assert runpy.run_path(str(entrypoint))["app"] is _dashboard.app
+    assert log_secret.create.call_count == (0 if is_remote else 1)
+    log_secret.update.assert_not_called()

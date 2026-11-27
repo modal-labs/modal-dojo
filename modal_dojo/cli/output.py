@@ -64,9 +64,9 @@ def print_table(
     _console().print(table)
 
 
-def print_renderable(renderable: RenderableType) -> None:
+def print_renderable(renderable: RenderableType, *, soft_wrap: bool = False) -> None:
     """Render a Rich object to stdout using the shared terminal settings."""
-    _console().print(renderable)
+    _console().print(renderable, soft_wrap=soft_wrap)
 
 
 def print_error(message: str) -> None:
